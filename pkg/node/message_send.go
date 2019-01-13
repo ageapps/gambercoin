@@ -18,7 +18,7 @@ func (node *Node) sendStatusMessage(destination, nodeName string) {
 	node.peerConection.SendPacketToPeer(destination, packet)
 }
 
-func (node *Node) sendRumrorMessage(destinationAdress, origin string, id uint32) {
+func (node *Node) sendRumorMessage(destinationAdress, origin string, id uint32) {
 	if message := node.rumorStack.GetRumorMessage(origin, id); message != nil {
 		packet := &data.GossipPacket{Rumor: message}
 		logger.Logi("Sending RUMOR ID:%v", message.ID)

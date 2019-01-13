@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ageapps/gambercoin/pkg/blockchain"
+	"github.com/ageapps/gambercoin/pkg/signal"
 	"github.com/ageapps/gambercoin/pkg/utils"
 
 	"github.com/ageapps/gambercoin/pkg/data"
@@ -86,19 +87,19 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 			node.router.SetEntry(msg.Route, address)
 		}
 		if handler != nil {
-			handler.Stop()
+			handler.SignalChannel <- signal.Stop
 		}
 		return
 	}
 
 	if handler != nil {
-		handler.SetSynking(true)
+		handler.SignalChannel <- signal.Sync
 	}
 	if len(msg.Want) < len(*node.rumorStack.getRumorStack()) {
 		// check messages that i have from other peers that aren´t in the status message
 		missingMessage := node.rumorStack.getFirstMissingMessage(&msg.Want)
 		if missingMessage != nil {
-			node.sendRumrorMessage(address, missingMessage.Origin, missingMessage.ID)
+			node.sendRumorMessage(address, missingMessage.Origin, missingMessage.ID)
 		}
 		return
 	}
@@ -122,7 +123,7 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 			// logger.Log("Node and Peer have same messages")
 		case OLD_MESSAGE:
 			// logger.Log("Peer needs to update")
-			node.sendRumrorMessage(address, status.Identifier, status.NextID)
+			node.sendRumorMessage(address, status.Identifier, status.NextID)
 			break
 		}
 		inSync = inSync && messageStatus == IN_SYNC
@@ -130,13 +131,12 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 	if inSync {
 		logger.LogInSync(address)
 		if handler != nil {
-			handler.SetSynking(false)
 			// Flip coin
 			logger.Logi("IN SYNC, FLIPPING COIN")
 			if !utils.KeepRumorering() {
-				handler.Stop()
+				handler.SignalChannel <- signal.Stop
 			} else {
-				handler.Reset()
+				handler.SignalChannel <- signal.Reset
 			}
 		}
 	}

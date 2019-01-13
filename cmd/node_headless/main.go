@@ -21,7 +21,7 @@ import (
 // go run main.go -UIPort=10002 -nodepAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5000 -rtimer=3
 
 // listen to udp clients sending messages
-func listenToUDPClient(address string, outChan chan client.Message) {
+func listenToUDPClient(address string, outChan chan<- client.Message) *connection.ConnectionHandler {
 	udpConnection, err := connection.NewConnectionHandler(address, "client", true)
 	if err != nil {
 		log.Fatal(err)
@@ -33,7 +33,9 @@ func listenToUDPClient(address string, outChan chan client.Message) {
 			}
 			outChan <- pkt.Message
 		}
+		close(outChan)
 	}()
+	return udpConnection
 }
 
 func main() {
@@ -50,7 +52,8 @@ func main() {
 
 	clientAddress := fmt.Sprintf("%v:%v", nodepAddr.String(), UIPort)
 	clientChannel := make(chan client.Message)
-	listenToUDPClient(clientAddress, clientChannel)
+	clientConn := listenToUDPClient(clientAddress, clientChannel)
+	defer clientConn.Close()
 
 	logger.CreateLogger(*name, nodepAddr.String(), logger.Verbose)
 
@@ -60,7 +63,6 @@ func main() {
 	}
 
 	go node.AddPeers(peers)
-
 	// Start process
 	if err := node.Start(clientChannel); err != nil {
 		log.Fatal(err)

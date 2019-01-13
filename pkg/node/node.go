@@ -12,6 +12,7 @@ import (
 	"github.com/ageapps/gambercoin/pkg/logger"
 	"github.com/ageapps/gambercoin/pkg/monguer"
 	"github.com/ageapps/gambercoin/pkg/router"
+	"github.com/ageapps/gambercoin/pkg/signal"
 	"github.com/ageapps/gambercoin/pkg/utils"
 )
 
@@ -63,7 +64,7 @@ func NewNode(addressStr, name string) (*Node, error) {
 }
 
 // Start node process
-func (node *Node) Start(clientChan chan client.Message) error {
+func (node *Node) Start(clientChan <-chan client.Message) error {
 	connection, err := connection.NewConnectionHandler(node.Address.String(), node.Name, true)
 	if err != nil {
 		return err
@@ -81,16 +82,15 @@ func (node *Node) Stop() {
 	logger.Logi("Finishing Node %v", node.Name)
 	node.setRunning(false)
 	for _, process := range node.getMongerProcesses() {
-		process.Stop()
+		process.SignalChannel <- signal.Stop
 	}
 	node.peerConection.Close()
-	// node = nil
 }
 
 // listenToClientChannel function
 // start to listen for client messages
 // in input channel
-func (node *Node) listenToClientChannel(clientChan chan client.Message) {
+func (node *Node) listenToClientChannel(clientChan <-chan client.Message) {
 	if clientChan == nil {
 		logger.Logi("No client input channel created")
 		return
@@ -193,8 +193,14 @@ func (node *Node) mongerMessage(msg *monguer.RumorMessage, originPeer string, ro
 	monguerProcess := monguer.NewMongerHandler(originPeer, name, routerMonguering, msg, node.peers)
 	node.mux.Unlock()
 
-	node.registerProcess(monguerProcess, PROCESS_MONGUER)
-	monguerProcess.Start(func() {
-		node.unregisterProcess(monguerProcess.Name, PROCESS_MONGUER)
+	node.registerMonguerProcess(monguerProcess)
+	messageQueue := monguerProcess.Start(func() {
+		node.unregisterProcess(monguerProcess.Name)
 	})
+
+	go func() {
+		for msg := range messageQueue {
+			node.peerConection.SendPacketToPeer(msg.Destination, &data.GossipPacket{Rumor: msg.Message})
+		}
+	}()
 }

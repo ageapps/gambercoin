@@ -44,7 +44,7 @@ func (router *Router) SetEntry(origin, address string) bool {
 		newEntry := utils.PeerAddress{}
 		err := newEntry.Set(address)
 		if err != nil {
-			logger.Log("Error updating router entry")
+			logger.Logf("Error updating router entry")
 			return false
 		}
 		router.addEntry(origin, &newEntry)
@@ -53,7 +53,7 @@ func (router *Router) SetEntry(origin, address string) bool {
 }
 
 func (router *Router) addEntry(origin string, entry *utils.PeerAddress) {
-	logger.Log(fmt.Sprintf("Route entry appended - Origin:%v", origin))
+	logger.Logf(fmt.Sprintf("Route entry appended - Origin:%v", origin))
 	router.table[origin] = entry
 	logger.LogDSDV(origin, entry.String())
 }

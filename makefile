@@ -1,3 +1,20 @@
+
+# Space separated patterns of packages to skip in list, test, format.
+IGNORED_PACKAGES := vendor test pkg
+
+V := 1 # When V is set, print commands and build progress.
+Q := $(if $V,,@)
+
+# cd into the GOPATH to workaround ./... not following symlinks
+_allpackages = $(shell ( go list ./... 2>&1 1>&3 | \
+    grep -v -e "^$$" $(addprefix -e ,$(IGNORED_PACKAGES)) 1>&2 ) 3>&1 | \
+    grep -v -e "^$$" $(addprefix -e ,$(IGNORED_PACKAGES)))
+
+# memoize allpackages, so that it's executed only once and only if used
+allpackages = $(if $(__allpackages),,$(eval __allpackages := $$(_allpackages)))$(__allpackages)
+
+
+
 t = 3 # timer
 n = 4 # node number
 f = test.png
@@ -5,16 +22,27 @@ h = 13fa82c9e76e18e1e8587231be1aa955f3469a20a1b085a28326339f36108ddd
 d = nodeA
 s = test
 
+list:
+	@echo $(allpackages)
+
+
 build:
-	go build .
-	cd ./client && go build . && cd ..
-	cd ./server && go build . && cd ..
+	@for MOD in $(allpackages); do \
+		package=$$(echo "$${MOD##*/}"); \
+	 	echo "... building package $$package ..."; \
+		go build  -o ./bin/$$package $$MOD; \
+	done
 
 clean:
-	go clean
-	go clean ./client/
-	go clean ./server/
-	rm *.out
+	rm ./bin/*
+
+.PHONY: test
+test:
+	$Q go test $(if $V,-v) -race ./test # install -race libs to speed up next run
+
+vet:
+	$Q go vet $(allpackages)
+
 
 run:
 	@sum=`expr $(n) - 1`; echo $$sum; go run --race . -UIPort=1000$(n) -gossipAddr=127.0.0.1:500$(n) -name=node$(n) -rtimer=$(t)  -peers=127.0.0.1:500$$sum
@@ -52,6 +80,10 @@ front:
 	current=$(shell pwd) && cd $$location && npm run build && cd $$current; \
 	bash -c "rm -r web/*"; \
 	cp -R $$location/dist/* ./web 
+
+testp:
+	cd test; \
+	go test -v
 
 test1:
 	sh test/test_1_ring.sh

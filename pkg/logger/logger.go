@@ -4,138 +4,135 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
+)
+
+// DebugLevel for logger
+type DebugLevel int
+
+const (
+	// Verbose mode
+	Verbose DebugLevel = 2
+	// Info mode
+	Info DebugLevel = 1
+	// Warning mode
+	Warning DebugLevel = 0
 )
 
 // Logger struct
 type Logger struct {
 	address string
 	name    string
-	debug   bool
+	level   DebugLevel
 	log     *log.Logger
 }
 
 var instance = Logger{
 	address: "",
 	name:    "",
-	debug:   false,
-	log:     log.New(os.Stdout, "LOG: ", log.Ltime),
+	level:   -1,
+	log:     log.New(os.Stdout, "", log.Ltime),
 }
 
 // LogRumor func
 func LogRumor(origin, from, id, text string) {
-	fmt.Printf("RUMOR origin %v from %v ID %v contents %v\n", origin, from, id, text)
+	Logw("RUMOR origin %v from %v ID %v contents %v\n", origin, from, id, text)
 }
 
 // LogStatus func
 func LogStatus(wanted, from string) {
-	fmt.Printf("STATUS from %v %v\n", from, wanted)
+	Logw("STATUS from %v %v\n", from, wanted)
 }
 
 // LogSimple func
 func LogSimple(origin, relay, content string) {
-	fmt.Printf("SIMPLE MESSAGE origin %v from %v contents %v\n", origin, relay, content)
+	Logw("SIMPLE MESSAGE origin %v from %v contents %v\n", origin, relay, content)
 }
 
 // LogPeers func
 func LogPeers(peers string) {
-	fmt.Println("PEERS " + peers)
+	Logw("PEERS %v\n", peers)
 }
 
 // LogInSync func
 func LogInSync(peer string) {
-	fmt.Println("IN SYNC WITH " + peer)
+	Logw("IN SYNC WITH %v\n", peer)
 }
 
 // LogClient func
 func LogClient(text string) {
-	fmt.Printf("CLIENT MESSAGE %v\n", text)
+	Logw("CLIENT MESSAGE %v\n", text)
 }
 
 // LogCoin func
 func LogCoin(address string) {
-	fmt.Printf("FLIPPED COIN sending rumor to %v\n", address)
+	Logw("FLIPPED COIN sending rumor to %v\n", address)
 }
 
 // LogMonguer func
 func LogMonguer(address string) {
-	fmt.Printf("MONGERING with %v \n", address)
+	Logw("MONGERING with %v \n", address)
 }
 
 // LogDSDV func
 func LogDSDV(origin, address string) {
-	fmt.Printf("DSDV %v %v\n", origin, address)
+	Logw("DSDV %v %v\n", origin, address)
 }
 
 // LogPrivate func
 func LogPrivate(origin, hops, text string) {
-	fmt.Printf("PRIVATE origin %v hop-limit %v contents %v \n", origin, hops, text)
-}
-
-// LogMetafile func
-func LogMetafile(filename, peer string) {
-	fmt.Printf("DOWNLOADING metafile of %v from %v \n", filename, peer)
-}
-
-// LogChunk func
-func LogChunk(filename, peer string, chunk int) {
-	fmt.Printf("DOWNLOADING %v chunk %v from %v \n", filename, chunk, peer)
-}
-
-// LogReconstructed func
-func LogReconstructed(filename string) {
-	fmt.Printf("RECONSTRUCTED file %v \n", filename)
-}
-
-// LogFoundFile func
-func LogFoundFile(filename, origin, metafile string, chunks []uint64) {
-	indexes := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(chunks)), ","), "[]")
-	fmt.Printf("FOUND match %v at %v metafile=%v chunks=%v\n", filename, origin, metafile, indexes)
+	Logw("PRIVATE origin %v hop-limit %v contents %v \n", origin, hops, text)
 }
 
 // LogFoundBlock func
 func LogFoundBlock(hash string) {
-	fmt.Printf("FOUND-BLOCK %v\n", hash)
-}
-
-// LogSearchFinished func
-func LogSearchFinished() {
-	fmt.Println("SEARCH FINISHED")
+	Logw("FOUND-BLOCK %v\n", hash)
 }
 
 // LogForkShort func
 func LogForkShort(hash string) {
-	fmt.Println("FORK-SHORTER " + hash)
+	Logw("FORK-SHORTER %v\n", hash)
 }
 
 // LogForkLong func
 func LogForkLong(blocks int) {
-	fmt.Printf("FORK-LONGER rewind %v blocks\n", blocks)
+	Logw("FORK-LONGER rewind %v blocks\n", blocks)
 }
 
 // CreateLogger func
-func CreateLogger(name, address string, debug bool) {
+func CreateLogger(name, address string, level DebugLevel) {
 	instance.name = name
 	instance.address = address
-	instance.debug = debug
+	instance.level = level
 
 	instance.log = log.New(os.Stdout, "["+name+"/"+address+"]: ", log.Ltime)
-	if debug {
-		fmt.Printf("*******  Logger Created  ******\nNAME: %v\nADRESS: %v\n", name, address)
-		fmt.Printf("*******  **************  ******\n")
-	}
+	Logi("*******  Logger Created  ******\nNAME: %v\nADRESS: %v\n", name, address)
+	Logi("*******  **************  ******\n")
+
 }
 
-// Log func
-func Log(text string) {
-	if instance.debug {
-		instance.log.Println(text)
-	}
+// Logi func
+func Logi(format string, v ...interface{}) {
+	print(Info, fmt.Sprintf(format, v...))
+}
+
+// Logw func
+func Logw(format string, v ...interface{}) {
+	print(Warning, fmt.Sprintf(format, v...))
 }
 
 // Logf func
 func Logf(format string, v ...interface{}) {
-	if instance.debug {
-		instance.log.Printf(format, v...)
+	print(Info, fmt.Sprintf(format, v...))
+}
+
+// Log func
+func Log(level DebugLevel, format string, v ...interface{}) {
+	print(level, fmt.Sprintf(format, v...))
+}
+
+// Log func
+func print(level DebugLevel, text string) {
+	if level <= instance.level {
+		instance.log.Println(text)
 	}
 }

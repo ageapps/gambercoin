@@ -75,12 +75,12 @@ func (handler *MongerHandler) Start(onStopHandler func()) {
 		for {
 			select {
 			case <-handler.resetChannel:
-				logger.Log("Restarting monger handler - " + handler.Name)
+				logger.Logf("Restarting monger handler - %v", handler.Name)
 				handler.monguerWithPeer(true)
 			case <-handler.timer.C:
 				// Flip coin
 				if !handler.isSynking() {
-					logger.Log("TIMEOUT, FLIPPING COIN")
+					logger.Logf("TIMEOUT, FLIPPING COIN")
 					if !keepRumorering() {
 						handler.Stop()
 					} else {
@@ -89,7 +89,7 @@ func (handler *MongerHandler) Start(onStopHandler func()) {
 					}
 				}
 			case <-handler.quitChannel:
-				logger.Log("Finishing monger handler - " + handler.Name)
+				logger.Logf("Finishing monger handler - " + handler.Name)
 				if handler.timer.C != nil {
 					handler.timer.Stop()
 				}
@@ -102,7 +102,7 @@ func (handler *MongerHandler) Start(onStopHandler func()) {
 }
 
 func (handler *MongerHandler) newTimer() *time.Timer {
-	// logger.Log("Launching new timer")
+	// logger.Logf("Launching new timer")
 	return time.NewTimer(1 * time.Second)
 }
 
@@ -122,7 +122,7 @@ func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 		handler.timer = handler.newTimer()
 		handler.setMonguerPeer(peer.String())
 		handler.addUsedPeer(peer.String())
-		// logger.Log(fmt.Sprint("Monguering with peer: ", peer.String()))
+		// logger.Logf(fmt.Sprint("Monguering with peer: ", peer.String()))
 		if !flipped {
 			logger.LogMonguer(peer.String())
 		} else {
@@ -130,7 +130,7 @@ func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 		}
 		handler.SendChannel <- MongerBundle{handler.getMonguerMessage(), peer.String()}
 	} else {
-		logger.Log(fmt.Sprint("No peers to monger with"))
+		logger.Logf(fmt.Sprint("No peers to monger with"))
 		handler.Stop()
 	}
 }
@@ -142,7 +142,7 @@ func (handler *MongerHandler) Stop() {
 		handler.setActive(false)
 		close(handler.quitChannel)
 	} else {
-		logger.Log("Monguer process is not active...")
+		logger.Logf("Monguer process is not active...")
 	}
 }
 
@@ -150,7 +150,7 @@ func (handler *MongerHandler) Stop() {
 func (handler *MongerHandler) Reset() {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
-	logger.Log("Restart monger handler")
+	logger.Logf("Restart monger handler")
 	go func() {
 		handler.resetChannel <- true
 	}()
@@ -167,7 +167,7 @@ func (handler *MongerHandler) SetMonguerMessage(msg *RumorMessage) {
 func (handler *MongerHandler) getMonguerMessage() *RumorMessage {
 	handler.mux.Lock()
 	defer handler.mux.Unlock()
-	// logger.Log(fmt.Sprint("Monger message is ", handler.currentMessage))
+	// logger.Logf(fmt.Sprint("Monger message is ", handler.currentMessage))
 	return handler.currentMessage
 }
 
@@ -230,7 +230,7 @@ func (handler *MongerHandler) addUsedPeer(peer string) {
 }
 
 func (handler *MongerHandler) logMonguer(msg string) {
-	logger.Log(fmt.Sprintf("[MONGER-%v]%v", handler.Name, msg))
+	logger.Logf(fmt.Sprintf("[MONGER-%v]%v", handler.Name, msg))
 }
 
 func keepRumorering() bool {

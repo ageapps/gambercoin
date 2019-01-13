@@ -115,6 +115,11 @@ func Logi(format string, v ...interface{}) {
 	print(Info, fmt.Sprintf(format, v...))
 }
 
+// Logv func
+func Logv(format string, v ...interface{}) {
+	print(Verbose, fmt.Sprintf(format, v...))
+}
+
 // Logw func
 func Logw(format string, v ...interface{}) {
 	print(Warning, fmt.Sprintf(format, v...))

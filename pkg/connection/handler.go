@@ -2,9 +2,9 @@ package connection
 
 import (
 	"errors"
-	"fmt"
 	"net"
 
+	"github.com/ageapps/gambercoin/pkg/client"
 	"github.com/ageapps/gambercoin/pkg/data"
 	"github.com/ageapps/gambercoin/pkg/logger"
 	"github.com/ageapps/gambercoin/pkg/utils"
@@ -44,7 +44,7 @@ func NewConnectionHandler(address, name string, listenToPackets bool) (*Connecti
 // Close connection
 func (handler *ConnectionHandler) Close() {
 	if err := handler.conn.Close(); err != nil {
-		logger.Log(fmt.Sprintln("Error closing connection", err))
+		logger.Logw("Error closing connection: %v", err)
 		// log.Fatal(err1)
 	}
 	handler.Stop()
@@ -52,7 +52,7 @@ func (handler *ConnectionHandler) Close() {
 
 // CreateConnection in address
 func createConnection(address string) (*net.UDPAddr, *net.UDPConn, error) {
-	logger.Log("Starting to listen in address: " + address)
+	logger.Logi("Starting to listen in address: %v", address)
 	if udpAddr, err1 := net.ResolveUDPAddr("udp4", address); err1 != nil {
 		return nil, nil, err1
 	} else if udpConn, err2 := net.ListenUDP("udp4", udpAddr); err2 != nil {
@@ -75,14 +75,14 @@ func (handler *ConnectionHandler) startListening(messages chan data.UDPMessage, 
 			msg = data.UDPMessage{Packet: *packet, Address: address}
 			err = e
 		} else {
-			message := &data.Message{}
+			message := &client.Message{}
 			address, e := handler.readMessage(message)
 
 			msg = data.UDPMessage{Message: *message, Address: address}
 			err = e
 		}
 		if err != nil {
-			logger.Log("Error reading packet")
+			logger.Logw("Error reading packet")
 			break
 		}
 		go func() {
@@ -94,7 +94,7 @@ func (handler *ConnectionHandler) startListening(messages chan data.UDPMessage, 
 
 // BroadcastPacket function
 func (handler *ConnectionHandler) BroadcastPacket(peers *utils.PeerAddresses, packet *data.GossipPacket, incommingPeer string) {
-	logger.Log("Broadcasting packet " + packet.GetPacketType())
+	logger.Logi("Broadcasting packet %v", packet.GetPacketType())
 	for _, peer := range peers.GetAdresses() {
 		if incommingPeer == peer.String() {
 			continue
@@ -108,7 +108,7 @@ func (handler *ConnectionHandler) SendPacketToPeer(address string, packet *data.
 	if handler.conn == nil {
 		return errors.New("No connection")
 	}
-	logger.Log("Sending packet " + packet.GetPacketType() + " to <" + address + ">")
+	logger.Logi("Sending packet %v to <%v>", packet.GetPacketType(), address)
 
 	go func() {
 		udpaddr, err1 := net.ResolveUDPAddr("udp4", address)
@@ -135,7 +135,7 @@ func (handler *ConnectionHandler) readPacket(packet *data.GossipPacket) (string,
 	buffer := make([]byte, 65535)
 	_, address, err1 := handler.conn.ReadFromUDP(buffer)
 	if err1 != nil {
-		logger.Log("Error Reading packet UDP")
+		logger.Logw("Error Reading packet UDP")
 		return "", err1
 	}
 	err2 := protobuf.Decode(buffer, packet)
@@ -146,7 +146,7 @@ func (handler *ConnectionHandler) readPacket(packet *data.GossipPacket) (string,
 }
 
 // readMessage reads and decodes message
-func (handler *ConnectionHandler) readMessage(msg *data.Message) (string, error) {
+func (handler *ConnectionHandler) readMessage(msg *client.Message) (string, error) {
 	buffer := make([]byte, 1024)
 	_, address, err := handler.conn.ReadFromUDP(buffer)
 	protobuf.Decode(buffer, msg)

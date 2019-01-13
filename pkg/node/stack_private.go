@@ -1,7 +1,6 @@
 package node
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/ageapps/gambercoin/pkg/data"
@@ -27,7 +26,7 @@ func (stack *PrivateStack) CompareMessage(origin string, id uint32) string {
 		return NEW_MESSAGE
 	}
 	lastMessageID := messages[len(messages)-1].ID
-	logger.Log(fmt.Sprintf("Comparing messages %v/%v", lastMessageID, id))
+	logger.Logv("Comparing messages %v/%v", lastMessageID, id)
 	switch {
 	case id == lastMessageID:
 		return IN_SYNC
@@ -69,7 +68,7 @@ func (stack *PrivateStack) AddMessage(msg data.PrivateMessage) {
 			stack.Messages[msg.Origin] = append(messages, msg)
 		}
 	}
-	logger.Log(fmt.Sprintf("Message appended to private stack Origin:%v ID:%v", msg.Origin, id))
+	logger.Logi("Message appended to private stack Origin:%v ID:%v", msg.Origin, id)
 }
 
 // PrintStack func
@@ -77,7 +76,7 @@ func (stack *PrivateStack) PrintStack() {
 	stack.mux.Lock()
 	defer stack.mux.Unlock()
 	for address := range stack.Messages {
-		logger.Log(fmt.Sprintf("Sender <%v>, last message %v", address, stack.Messages[address]))
+		logger.Logw("Sender <%v>, last message %v", address, stack.Messages[address])
 	}
 }
 

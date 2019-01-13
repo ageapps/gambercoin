@@ -1,7 +1,6 @@
 package node
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/ageapps/gambercoin/pkg/logger"
@@ -18,7 +17,7 @@ func (node *Node) startEntropyTimer(etimer int) {
 		if len(usedPeers) >= len(node.GetPeers().GetAdresses()) {
 			// logger.Log("Entropy Timer - All peers where notified")
 		} else if newpeer := node.GetPeers().GetRandomPeer(usedPeers); newpeer != nil {
-			logger.Log(fmt.Sprintf("Entropy Timer - MESSAGE to %v", newpeer.String()))
+			logger.Logv("Entropy Timer - MESSAGE to %v", newpeer.String())
 			node.mux.Lock()
 			node.usedPeers[newpeer.String()] = true
 			node.mux.Unlock()
@@ -35,7 +34,7 @@ func (node *Node) startRouteTimer(rtimer int) {
 	usedPeers := make(map[string]bool)
 	for node.IsRunning() {
 		if newpeer := node.GetPeers().GetRandomPeer(usedPeers); newpeer != nil {
-			logger.Log("Route Timer - MESSAGE")
+			logger.Logv("Route Timer - MESSAGE")
 			node.sendRouteRumorMessage(newpeer.String())
 		}
 		time.Sleep(time.Duration(rtimer) * time.Second)

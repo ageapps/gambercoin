@@ -45,7 +45,7 @@ func NewChainHandler(address string, peers *utils.PeerAddresses) *ChainHandler {
 }
 
 func (handler *ChainHandler) resetTimer() {
-	//logger.Log("Launching new timer")
+	//logger.Logf("Launching new timer")
 	if handler.getTimer().C != nil {
 		handler.getTimer().Stop()
 	}
@@ -77,7 +77,7 @@ func (handler *ChainHandler) Start(onStopHandler func()) {
 						// handler.publishTX(file, transaction.HopLimit, bundle.Origin)
 					}
 				} else {
-					logger.Log("Transaction for already indexed" + transaction.String())
+					logger.Logf("Transaction for already indexed" + transaction.String())
 				}
 			case minedBlock := <-handler.blockchain.MinedBlocks:
 				timer2 := time.NewTimer(time.Duration(2 * handler.blockchain.getBlockTime()))
@@ -99,7 +99,7 @@ func (handler *ChainHandler) Start(onStopHandler func()) {
 					}
 				}
 			case <-handler.quitChannel:
-				logger.Log("Finishing Blockchain handler")
+				logger.Logf("Finishing Blockchain handler")
 				if handler.timer.C != nil {
 					handler.timer.Stop()
 				}
@@ -117,7 +117,7 @@ func (handler *ChainHandler) Start(onStopHandler func()) {
 //StartBlockchain process
 func (handler *ChainHandler) StartBlockchain() {
 	handler.blockchain.Start(func() {
-		logger.Log("Stopped Blockchain succesfully")
+		logger.Logf("Stopped Blockchain succesfully")
 	})
 }
 
@@ -140,12 +140,12 @@ func (handler *ChainHandler) addBlock(bl *Block) {
 
 // Stop func
 func (handler *ChainHandler) Stop() {
-	logger.Log("Stopping handler")
+	logger.Logf("Stopping handler")
 	if !handler.stopped {
 		handler.stopped = true
 		return
 	}
-	logger.Log("Data Handler already stopped....")
+	logger.Logf("Data Handler already stopped....")
 }
 
 func (handler *ChainHandler) publishTX(hops uint32, origin string) {

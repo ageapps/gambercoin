@@ -13,7 +13,7 @@ import (
 
 func (node *Node) handleSimpleMessage(msg *data.SimpleMessage, address string) {
 	if msg.OriginalName == node.Name {
-		logger.Log("Received own message")
+		logger.Logv("Received own message")
 		return
 	}
 	newMsg := data.NewSimpleMessage(msg.OriginalName, msg.Contents, node.Address.String())
@@ -37,7 +37,7 @@ func (node *Node) handleRumorMessage(msg *monguer.RumorMessage, address string) 
 	isRouteRumor := msg.IsRouteRumor()
 	routeNode := ""
 	if isRouteRumor {
-		logger.Log(fmt.Sprintf("Received ROUTE RUMOR"))
+		logger.Logv("Received ROUTE RUMOR")
 		routeNode = msg.Origin
 	} else {
 		logger.LogRumor((*msg).Origin, address, fmt.Sprint((*msg).ID), (*msg).Text)
@@ -78,8 +78,8 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 
 	isRouteStatus := msg.IsRouteStatus()
 	handler := node.findMonguerProcess(address, isRouteStatus)
-	logger.Log(fmt.Sprint("Handler found:", handler != nil))
-	logger.Log(fmt.Sprint("STATUS received Route: ", isRouteStatus))
+	logger.Logi("Handler found: <%v>", handler != nil)
+	logger.Logi("STATUS received Route: %v", isRouteStatus)
 
 	if isRouteStatus {
 		if msg.Route != node.Name {
@@ -132,7 +132,7 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 		if handler != nil {
 			handler.SetSynking(false)
 			// Flip coin
-			logger.Log("IN SYNC, FLIPPING COIN")
+			logger.Logi("IN SYNC, FLIPPING COIN")
 			if !utils.KeepRumorering() {
 				handler.Stop()
 			} else {

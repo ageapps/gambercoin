@@ -6,8 +6,8 @@ import (
 	"log"
 	"net"
 
+	"github.com/ageapps/gambercoin/pkg/client"
 	"github.com/ageapps/gambercoin/pkg/connection"
-	"github.com/ageapps/gambercoin/pkg/data"
 	"github.com/ageapps/gambercoin/pkg/logger"
 	"github.com/ageapps/gambercoin/pkg/node"
 	"github.com/ageapps/gambercoin/pkg/utils"
@@ -21,7 +21,7 @@ import (
 // go run main.go -UIPort=10002 -nodepAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5000 -rtimer=3
 
 // listen to udp clients sending messages
-func listenToUDPClient(address string, outChan chan data.Message) {
+func listenToUDPClient(address string, outChan chan client.Message) {
 	udpConnection, err := connection.NewConnectionHandler(address, "client", true)
 	if err != nil {
 		log.Fatal(err)
@@ -49,10 +49,10 @@ func main() {
 	flag.Parse()
 
 	clientAddress := fmt.Sprintf("%v:%v", nodepAddr.String(), UIPort)
-	clientChannel := make(chan data.Message)
+	clientChannel := make(chan client.Message)
 	listenToUDPClient(clientAddress, clientChannel)
 
-	logger.CreateLogger(*name, nodepAddr.String(), true)
+	logger.CreateLogger(*name, nodepAddr.String(), logger.Verbose)
 
 	var node, err = node.NewNode(nodepAddr.String(), *name)
 	if err != nil {

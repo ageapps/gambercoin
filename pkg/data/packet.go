@@ -4,6 +4,7 @@ import (
 	"reflect"
 
 	"github.com/ageapps/gambercoin/pkg/blockchain"
+	"github.com/ageapps/gambercoin/pkg/client"
 	"github.com/ageapps/gambercoin/pkg/monguer"
 )
 
@@ -26,7 +27,7 @@ const (
 type UDPMessage struct {
 	Address string
 	Packet  GossipPacket
-	Message Message
+	Message client.Message
 }
 
 // GossipPacket struct

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/ageapps/gambercoin/pkg/blockchain"
+	"github.com/ageapps/gambercoin/pkg/client"
 	"github.com/ageapps/gambercoin/pkg/connection"
 	"github.com/ageapps/gambercoin/pkg/data"
 	"github.com/ageapps/gambercoin/pkg/logger"
@@ -62,7 +63,7 @@ func NewNode(addressStr, name string) (*Node, error) {
 }
 
 // Start node process
-func (node *Node) Start(clientChan chan data.Message) error {
+func (node *Node) Start(clientChan chan client.Message) error {
 	connection, err := connection.NewConnectionHandler(node.Address.String(), node.Name, true)
 	if err != nil {
 		return err
@@ -77,7 +78,7 @@ func (node *Node) Start(clientChan chan data.Message) error {
 
 // Stop node process
 func (node *Node) Stop() {
-	logger.Log("Finishing Node " + node.Name)
+	logger.Logi("Finishing Node %v", node.Name)
 	node.setRunning(false)
 	for _, process := range node.getMongerProcesses() {
 		process.Stop()
@@ -89,9 +90,9 @@ func (node *Node) Stop() {
 // listenToClientChannel function
 // start to listen for client messages
 // in input channel
-func (node *Node) listenToClientChannel(clientChan chan data.Message) {
+func (node *Node) listenToClientChannel(clientChan chan client.Message) {
 	if clientChan == nil {
-		logger.Log("No client input channel created")
+		logger.Logi("No client input channel created")
 		return
 	}
 	for msg := range clientChan {
@@ -118,7 +119,7 @@ func (node *Node) listenToPeers() error {
 }
 
 // handleClientMessage handles client messages
-func (node *Node) handleClientMessage(msg *data.Message) {
+func (node *Node) handleClientMessage(msg *client.Message) {
 
 	logger.Logf("Message received from client \nprivate: %v", msg.IsDirectMessage())
 
@@ -143,7 +144,7 @@ func (node *Node) handleClientMessage(msg *data.Message) {
 	}
 }
 
-func (node *Node) handleClientDirectMessage(msg *data.Message) {
+func (node *Node) handleClientDirectMessage(msg *client.Message) {
 	// Message has request hash
 	// Message is a private message
 	logger.LogClient((*msg).Text)
@@ -163,7 +164,7 @@ func (node *Node) handlePeerPacket(packet *data.GossipPacket, originAddress stri
 	}
 
 	packetType := packet.GetPacketType()
-	logger.Log("Received packet peer: " + packetType)
+	logger.Logw("Received packet peer: " + packetType)
 	switch packetType {
 	case data.PACKET_STATUS:
 		node.handleStatusMessage(packet.Status, originAddress)
@@ -181,7 +182,7 @@ func (node *Node) handlePeerPacket(packet *data.GossipPacket, originAddress stri
 		logger.LogPeers(node.peers.String())
 		node.handleSimpleMessage(packet.Simple, originAddress)
 	default:
-		logger.Log("Message not recognized")
+		logger.Logw("Message not recognized")
 		// log.Fatal(errors.New("Message not recognized"))
 	}
 }

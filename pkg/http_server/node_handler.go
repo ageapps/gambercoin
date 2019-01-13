@@ -1,10 +1,10 @@
 package http_server
 
 import (
-	"fmt"
 	"log"
 	"sync"
 
+	"github.com/ageapps/gambercoin/pkg/client"
 	"github.com/ageapps/gambercoin/pkg/data"
 	"github.com/ageapps/gambercoin/pkg/logger"
 	"github.com/ageapps/gambercoin/pkg/monguer"
@@ -22,7 +22,7 @@ func NewNodePool() *NodePool {
 // GossiperPool struct cointaining nodes
 type NodePool struct {
 	nodes           map[string]*node.Node
-	messageChannels map[string]*chan data.Message
+	messageChannels map[string]*chan client.Message
 	mux             sync.Mutex
 }
 
@@ -31,7 +31,7 @@ func (pool *NodePool) addNode(node *node.Node) {
 	pool.nodes[node.Name] = node
 	pool.mux.Unlock()
 }
-func (pool *NodePool) addMsgChannel(name string, msgChan *chan data.Message) {
+func (pool *NodePool) addMsgChannel(name string, msgChan *chan client.Message) {
 	pool.mux.Lock()
 	pool.messageChannels[name] = msgChan
 	pool.mux.Unlock()
@@ -47,7 +47,7 @@ func (pool *NodePool) getGossiper(name string) (foundGossiper *node.Node, found 
 	foundGossiper, found = pool.nodes[name]
 	return
 }
-func (pool *NodePool) getMsgChannel(name string) (foundChannel chan data.Message, found bool) {
+func (pool *NodePool) getMsgChannel(name string) (foundChannel chan client.Message, found bool) {
 	pool.mux.Lock()
 	defer pool.mux.Unlock()
 	foundChannelPtr, found := pool.messageChannels[name]
@@ -58,7 +58,7 @@ func (pool *NodePool) findGossiper(name, address string) (*node.Node, bool) {
 	defer pool.mux.Unlock()
 	for _, node := range pool.nodes {
 		if node.Address.String() == address || node.Name == name {
-			logger.Log(fmt.Sprintf("Running node found Name:%v Address:%v", name, address))
+			logger.Logi("Running node found Name:%v Address:%v", name, address)
 			return node, true
 		}
 	}
@@ -67,6 +67,8 @@ func (pool *NodePool) findGossiper(name, address string) (*node.Node, bool) {
 
 var (
 	gossiperPool = NewNodePool()
+	// DebugLevel default level
+	DebugLevel = logger.Verbose
 )
 
 // StatusResponse struct
@@ -76,20 +78,20 @@ type StatusResponse struct {
 }
 
 func startGossiper(name, address string, peers *utils.PeerAddresses) string {
-	logger.CreateLogger(name, address, true)
+	logger.CreateLogger(name, address, DebugLevel)
 	targetGossiper, found := gossiperPool.findGossiper(name, address)
 
 	if !found {
 		newNode, err := node.NewNode(address, name)
 		if err != nil {
-			logger.Log(fmt.Sprintln("Error creating new Node ", err))
+			logger.Logw("Error creating new Node, %v ", err)
 			return ""
 		}
 		targetGossiper = newNode
 		if peers != nil && len(peers.GetAdresses()) > 0 {
 			go targetGossiper.AddPeers(peers)
 		}
-		messageChannels := make(chan data.Message)
+		messageChannels := make(chan client.Message)
 		if err := targetGossiper.Start(messageChannels); err != nil {
 			log.Fatal(err)
 		}
@@ -168,7 +170,7 @@ func sendMessage(name, msg string) bool {
 	if !found {
 		return false
 	}
-	newMsg := &data.Message{
+	newMsg := &client.Message{
 		Text: msg,
 	}
 	channel, _ := gossiperPool.getMsgChannel(targetGossiper.Name)
@@ -181,7 +183,7 @@ func sendPrivateMessage(name, destination, msg string) bool {
 	if !found {
 		return false
 	}
-	newMsg := &data.Message{
+	newMsg := &client.Message{
 		Text:        msg,
 		Destination: destination,
 	}

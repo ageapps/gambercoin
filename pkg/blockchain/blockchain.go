@@ -68,7 +68,7 @@ func (bc *BlockChain) Start(onStopHandler func()) {
 			bc.addBlock(block, false)
 		case <-bc.quitChannel:
 			bc.setMining(false)
-			logger.Log("Finishing Blockchain")
+			logger.Logf("Finishing Blockchain")
 			bc.CloseChannels()
 			onStopHandler()
 			return
@@ -157,7 +157,7 @@ func (bc *BlockChain) addBlock(newBlock *Block, forking bool) bool {
 		// reference the prev hash to the new added block
 		bc.setPrevHash(newBlock.Nonce)
 		if !bc.checkTransactionsInCurrentBlock(newBlock) {
-			logger.Log("Transactions NOT found in current block")
+			logger.Logf("Transactions NOT found in current block")
 			// there is no transactions in the block that i am currently minig,
 			// jclean transaction pool from new block and keep mining
 			bc.cleanTransactionPoolByAddedBlock(newBlock)
@@ -165,7 +165,7 @@ func (bc *BlockChain) addBlock(newBlock *Block, forking bool) bool {
 				bc.buildBlockAndMine()
 			}
 		} else {
-			logger.Log("Transactions found in current block")
+			logger.Logf("Transactions found in current block")
 			fmt.Println(newBlock.Transactions)
 			fmt.Println(bc.getCurrentBlock().Transactions)
 			// there is transactions in the currentBlock,
@@ -187,17 +187,17 @@ func (bc *BlockChain) addBlock(newBlock *Block, forking bool) bool {
 		// just save it
 		sideChainIndex, parentIndex := bc.addToBlockPool(newBlock)
 		if sideChainIndex >= 0 && parentIndex >= 0 {
-			logger.Log("Side chains found")
+			logger.Logf("Side chains found")
 			bc.setMining(false)
 			bc.forkCanonicalChain(sideChainIndex, parentIndex)
 			bc.buildBlockAndMine()
 		} else {
-			logger.Log("NO Side chains found")
+			logger.Logf("NO Side chains found")
 		}
 
 		return true
 	case BLOCK_OLD:
-		logger.Log("Block already in blockchain, dropping it...")
+		logger.Logf("Block already in blockchain, dropping it...")
 		// if it's an old newBlock, just discard it
 		return false
 	}
@@ -212,12 +212,12 @@ func (bc *BlockChain) getBlockType(newBlock *Block) string {
 	}
 	_, ok := bc.getBlockPool()[newBlock.String()]
 	if ok {
-		logger.Log("Block already in pool")
+		logger.Logf("Block already in pool")
 		return BLOCK_OLD
 	}
 
 	if existing := bc.isBlockInCanonicalChain(newBlock); existing {
-		logger.Log("Block already in chain")
+		logger.Logf("Block already in chain")
 		return BLOCK_OLD
 	}
 
@@ -309,7 +309,7 @@ func (bc *BlockChain) addToBlockPool(block *Block) (sideChainIndex, parentIndex 
 // build all sidechains possible
 func (bc *BlockChain) buildSideChains(block *Block) {
 	bc.resetSideChains()
-	logger.Log("Trying to build new sidechains...")
+	logger.Logf("Trying to build new sidechains...")
 	for _, block := range bc.getBlockPool() {
 		newChain := NewEmptyChain()
 		lastBlock := block
@@ -362,7 +362,7 @@ func (bc *BlockChain) checkLongestChain() (sidechain, parentBlock int) {
 		for blockIndex := 0; blockIndex < canonicalChain.size(); blockIndex++ {
 			block := canonicalChain.Blocks[blockIndex]
 			if block.IsNextBlock(chainHead) {
-				logger.Log("Parent of SideChain found in CanonicalChain")
+				logger.Logf("Parent of SideChain found in CanonicalChain")
 				// if a block in the canonical chain is the parent
 				// of a head of a chain, lets check the sizes
 				headChainSize := blockIndex + 1
@@ -386,11 +386,11 @@ func (bc *BlockChain) checkLongestChain() (sidechain, parentBlock int) {
 
 // Stop func
 func (bc *BlockChain) Stop() {
-	logger.Log("Stopping BlockChain handler")
+	logger.Logf("Stopping BlockChain handler")
 	if !bc.isStopped() {
 		bc.setStopped(true)
 		close(bc.quitChannel)
 		return
 	}
-	logger.Log("BlockChain already stopped....")
+	logger.Logf("BlockChain already stopped....")
 }

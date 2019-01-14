@@ -19,24 +19,28 @@ func TestRouter(t *testing.T) {
 		t.Error("router not empty")
 	}
 
-	added := router.AddEntry(destination, testAddress)
+	added := router.AddEntry(destination, testAddress, false)
 
 	if added {
 		t.Error("Address should not be added " + testAddress)
 	}
-	added = router.AddEntry(destination, testAddress2)
+	added = router.AddEntry(destination, testAddress2, false)
 
 	if !added || router.GetTableSize() != 1 {
 		t.Error("Address not added correctly " + testAddress2)
 	}
-	added = router.AddEntry(destination, testAddress2)
+	added = router.AddEntry(destination, testAddress2, false)
 	if added || router.GetTableSize() != 1 {
 		t.Error("Address should not be added " + testAddress2)
 	}
 
-	added = router.AddEntry(destination, testAddress3)
+	added = router.AddEntry(destination, testAddress3, false)
 	if !added || router.GetTableSize() != 1 {
 		t.Error("Address should be updated " + testAddress3)
+	}
+	added = router.AddEntry(destination, testAddress2, true)
+	if added || router.GetTableSize() != 1 {
+		t.Error("Address should not be updated " + testAddress3)
 	}
 
 	address, found := router.GetAddress("")
@@ -48,7 +52,7 @@ func TestRouter(t *testing.T) {
 	if !found || address.String() != testAddress3 {
 		t.Errorf("Address should match %v", address)
 	}
-	router.AddEntry(destination2, testAddress2)
+	router.AddEntry(destination2, testAddress2, false)
 
 	used := make(map[string]int)
 	random := router.GetRandomDestination(used)

@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// KeepRumorering Flip coin
-func KeepRumorering() bool {
+// FlipCoin Flip coin
+func FlipCoin() bool {
 	seed := rand.NewSource(time.Now().UnixNano())
 	r := rand.New(seed)
 	// flipCoin

@@ -52,7 +52,7 @@ func (handler *ConnectionHandler) Close() {
 
 // CreateConnection in address
 func createConnection(address string) (*net.UDPAddr, *net.UDPConn, error) {
-	logger.Logi("Starting to listen in address: %v", address)
+	logger.Logw("Starting to listen in address: %v", address)
 	if udpAddr, err1 := net.ResolveUDPAddr("udp4", address); err1 != nil {
 		return nil, nil, err1
 	} else if udpConn, err2 := net.ListenUDP("udp4", udpAddr); err2 != nil {
@@ -113,14 +113,14 @@ func (handler *ConnectionHandler) SendPacketToPeer(address string, packet *data.
 	go func() {
 		udpaddr, err1 := net.ResolveUDPAddr("udp4", address)
 		if err1 != nil {
-			logger.Logf("Error Resolving address %v", address)
+			logger.Logw("Error Resolving address %v", address)
 		}
 		packetBytes, err2 := protobuf.Encode(packet)
 		if err2 != nil {
 			//logger.Logf("Warning Encoding: %v", err2)
 		}
 		if _, err3 := handler.conn.WriteToUDP(packetBytes, udpaddr); err3 != nil {
-			logger.Logf("Error Sending Packet %v", err3)
+			logger.Logw("Error Sending Packet %v", err3)
 		}
 	}()
 	return nil

@@ -79,8 +79,8 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 
 	isRouteStatus := msg.IsRouteStatus()
 	handler := node.findMonguerProcess(address, isRouteStatus)
-	logger.Logi("Handler found: <%v>", handler != nil)
-	logger.Logi("STATUS received Route: %v", isRouteStatus)
+	logger.Logv("Handler found: <%v>", handler != nil)
+	logger.Logv("STATUS received Route: %v", isRouteStatus)
 
 	if isRouteStatus {
 		if msg.Route != node.Name {
@@ -132,7 +132,7 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 		logger.LogInSync(address)
 		if handler != nil {
 			// Flip coin
-			logger.Logi("IN SYNC, FLIPPING COIN")
+			logger.Logv("IN SYNC, FLIPPING COIN")
 			if !utils.KeepRumorering() {
 				handler.SignalChannel <- signal.Stop
 			} else {

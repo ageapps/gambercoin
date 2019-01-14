@@ -45,45 +45,41 @@ vet:
 
 
 run:
-	@sum=`expr $(n) - 1`; echo $$sum; go run --race . -UIPort=1000$(n) -gossipAddr=127.0.0.1:500$(n) -name=node$(n) -rtimer=$(t)  -peers=127.0.0.1:500$$sum
+	@sum=`expr $(n) - 1`; echo $$sum; go run --race . -UIPort=1000$(n) -nodepAddr=127.0.0.1:500$(n) -name=node$(n) -peers=127.0.0.1:500$$sum
 
 run1:
-	go run --race . -UIPort=10000 -gossipAddr=127.0.0.1:5000 -name=nodeA -rtimer=3
+	go run --race ./cmd/node_headless -UIPort=10000 -nodepAddr=127.0.0.1:5000 -name=nodeA
 
 run2:
-	go run --race . -UIPort=10001 -gossipAddr=127.0.0.1:5001 -name=nodeB -peers=127.0.0.1:5000 -rtimer=3
+	go run --race ./cmd/node_headless -UIPort=10001 -nodepAddr=127.0.0.1:5001 -name=nodeB -peers=127.0.0.1:5000 
 
 run3:
-	go run --race . -UIPort=10002 -gossipAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5001 -rtimer=3
+	go run --race ./cmd/node_headless -UIPort=10002 -nodepAddr=127.0.0.1:5002 -name=nodeC -peers=127.0.0.1:5001 
 
 send1:
-	go run --race ./client -UIPort=10000 -msg=Hello
+	go run --race ./cmd/client -UIPort=10000 -msg=Hello
 send2:
-	go run --race ./client -UIPort=10001 -msg=Hello
+	go run --race ./cmd/client -UIPort=10001 -msg=Hello
 send3:
-	go run --race ./client -UIPort=10002 -msg=Hello
+	go run --race ./cmd/client -UIPort=10002 -msg=Hello
 
 send:
-	go run --race ./client -UIPort=10001 -msg=Hello -Dest=$(d) -file=$(f) -request=$(h)
+	go run --race ./cmd/client -UIPort=10001 -msg=Hello -Dest=$(d) -file=$(f) -request=$(h)
 
 search:
-	go run --race ./client -UIPort=1000$(n) -keywords=$(s)
+	go run --race ./cmd/client -UIPort=1000$(n) -keywords=$(s)
 
 serve:
 	cd ./server && go run --race .
 
 private:
-	go run --race ./client -UIPort=10002 -msg=Hello -Dest=$(d)
+	go run --race ./cmd/client -UIPort=10002 -msg=Hello -Dest=$(d)
 	
 front:	
 	location=~/git/gambercoin-App; \
 	current=$(shell pwd) && cd $$location && npm run build && cd $$current; \
 	bash -c "rm -r web/*"; \
 	cp -R $$location/dist/* ./web 
-
-testp:
-	cd test; \
-	go test -v
 
 test1:
 	sh test/test_1_ring.sh

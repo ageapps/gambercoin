@@ -17,7 +17,7 @@ func (node *Node) registerMonguerProcess(process *monguer.MongerHandler) {
 	node.mux.Lock()
 	node.monguerPocesses[process.Name] = process
 	node.mux.Unlock()
-	logger.Logf("%v - Registering %v - %v", node.Name, PROCESS_MONGUER, process.Name)
+	logger.Logv("%v - Registering %v - %v", node.Name, PROCESS_MONGUER, process.Name)
 }
 
 func (node *Node) unregisterProcess(name string) {
@@ -27,7 +27,7 @@ func (node *Node) unregisterProcess(name string) {
 	node.monguerPocesses[name] = nil
 	delete(node.monguerPocesses, name)
 	node.mux.Unlock()
-	logger.Logf("%v - Unregistering %v - %v found:%v", node.Name, PROCESS_MONGUER, name, found)
+	logger.Logv("%v - Unregistering %v - %v found:%v", node.Name, PROCESS_MONGUER, name, found)
 }
 
 func (node *Node) processExists(name string) bool {

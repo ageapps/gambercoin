@@ -46,7 +46,7 @@ func NewNode(addressStr, name string) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger.Logf("Listening to peers in address <%v>", addressStr)
+	logger.Logw("Listening to peers in address <%v>", addressStr)
 
 	return &Node{
 		Name:            name,
@@ -70,6 +70,7 @@ func (node *Node) Start(clientChan <-chan client.Message) error {
 		return err
 	}
 	node.peerConection = connection
+	node.setRunning(true)
 	go node.listenToClientChannel(clientChan)
 	go node.startRouteTimer(ROUTE_TIMER_PERIOD)
 	go node.startEntropyTimer(ENTROPY_TIMER_PERIOD)
@@ -79,10 +80,11 @@ func (node *Node) Start(clientChan <-chan client.Message) error {
 
 // Stop node process
 func (node *Node) Stop() {
-	logger.Logi("Finishing Node %v", node.Name)
+	logger.Logw("Finishing Node %v", node.Name)
 	node.setRunning(false)
 	for _, process := range node.getMongerProcesses() {
 		process.SignalChannel <- signal.Stop
+		close(process.SignalChannel)
 	}
 	node.peerConection.Close()
 }
@@ -92,13 +94,10 @@ func (node *Node) Stop() {
 // in input channel
 func (node *Node) listenToClientChannel(clientChan <-chan client.Message) {
 	if clientChan == nil {
-		logger.Logi("No client input channel created")
+		logger.Logw("No client input channel created")
 		return
 	}
 	for msg := range clientChan {
-		if msg.Destination == "" {
-			log.Fatal("message received is not valid")
-		}
 		node.handleClientMessage(&msg)
 	}
 }
@@ -121,7 +120,7 @@ func (node *Node) listenToPeers() error {
 // handleClientMessage handles client messages
 func (node *Node) handleClientMessage(msg *client.Message) {
 
-	logger.Logf("Message received from client \nprivate: %v", msg.IsDirectMessage())
+	logger.Logi("Message received from client \nprivate: %v", msg.IsDirectMessage())
 
 	switch {
 	case msg.Broadcast:

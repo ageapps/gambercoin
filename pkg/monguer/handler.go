@@ -81,7 +81,7 @@ func (handler *MongerHandler) Start(onStopHandler func()) <-chan MongerBundle {
 		for {
 			select {
 			case <-handler.resetChannel:
-				logger.Logf("Restarting monger handler - %v", handler.Name)
+				logger.Logv("Restarting monger handler - %v", handler.Name)
 				handler.monguerWithPeer(true)
 
 			case s := <-handler.SignalChannel:
@@ -96,7 +96,7 @@ func (handler *MongerHandler) Start(onStopHandler func()) <-chan MongerBundle {
 			case <-handler.timer.C:
 				// Flip coin
 				if !handler.isSynking() {
-					logger.Logf("TIMEOUT, FLIPPING COIN")
+					logger.Logv("TIMEOUT, FLIPPING COIN")
 					if !keepRumorering() {
 						handler.stop()
 					} else {
@@ -105,11 +105,12 @@ func (handler *MongerHandler) Start(onStopHandler func()) <-chan MongerBundle {
 					}
 				}
 			case <-handler.quitChannel:
-				logger.Logf("Finishing monger handler - " + handler.Name)
+				logger.Logv("Finishing monger handler - " + handler.Name)
 				if handler.timer.C != nil {
 					handler.timer.Stop()
 				}
 				close(handler.resetChannel)
+				close(handler.SendChannel)
 				onStopHandler()
 				return
 			}
@@ -147,7 +148,7 @@ func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 		}
 		handler.SendChannel <- MongerBundle{handler.getMonguerMessage(), peer.String()}
 	} else {
-		logger.Logf(fmt.Sprint("No peers to monger with"))
+		logger.Logi(fmt.Sprint("No peers to monger with"))
 		handler.stop()
 	}
 }
@@ -156,11 +157,11 @@ func (handler *MongerHandler) monguerWithPeer(flipped bool) {
 func (handler *MongerHandler) stop() {
 	handler.setSynking(false)
 	if handler.isActive() {
-		logger.Logf("Stopping monger handler - %v", handler.Name)
+		logger.Logv("Stopping monger handler - %v", handler.Name)
 		handler.setActive(false)
 		close(handler.quitChannel)
 	} else {
-		logger.Logf("Monguer process is not active...")
+		logger.Logv("Monguer process is not active...")
 	}
 }
 
@@ -169,7 +170,7 @@ func (handler *MongerHandler) reset() {
 	handler.setSynking(false)
 	handler.Lock()
 	defer handler.Unlock()
-	logger.Logf("Restart monger handler")
+	logger.Logv("Restart monger handler")
 	go func() {
 		handler.resetChannel <- true
 	}()
@@ -227,7 +228,9 @@ func (handler *MongerHandler) isSynking() bool {
 func (handler *MongerHandler) setSynking(value bool) {
 	handler.Lock()
 	defer handler.Unlock()
-	handler.timer.Stop()
+	if handler.timer.C != nil {
+		handler.timer.Stop()
+	}
 	handler.currentlySynchronicing = value
 }
 func (handler *MongerHandler) setActive(value bool) {
@@ -239,10 +242,6 @@ func (handler *MongerHandler) addUsedPeer(peer string) {
 	handler.Lock()
 	(*handler.usedPeers)[peer] = true
 	handler.Unlock()
-}
-
-func (handler *MongerHandler) logMonguer(msg string) {
-	logger.Logf(fmt.Sprintf("[MONGER-%v]%v", handler.Name, msg))
 }
 
 func keepRumorering() bool {

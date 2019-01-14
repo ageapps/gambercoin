@@ -32,11 +32,10 @@ func (router *Router) GetTable() *RoutingTable {
 }
 
 // AddEntry adds entry if there's none for the origin address or there's a new one
-func (router *Router) AddEntry(origin, address string) bool {
+func (router *Router) AddEntry(origin, address string, onlyIfNotExists bool) bool {
+	oldValue, found := router.GetAddress(origin)
 	isNew := false
-	oldValue, ok := router.GetAddress(origin)
-
-	if !ok || oldValue.String() != address {
+	if !found || (!onlyIfNotExists && oldValue.String() != address) {
 		isNew = true
 		newEntry := utils.PeerAddress{}
 		err := newEntry.Set(address)

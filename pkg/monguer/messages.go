@@ -53,6 +53,11 @@ func NewRumorMessage(origin string, ID uint32, text string) *RumorMessage {
 	return &RumorMessage{origin, ID, text}
 }
 
+// NewRouteRumorMessage create
+func NewRouteRumorMessage(origin string) *RumorMessage {
+	return &RumorMessage{origin, uint32(0), ""}
+}
+
 // IsRouteStatus create
 func (status *StatusPacket) IsRouteStatus() bool {
 	return status.Route != ""

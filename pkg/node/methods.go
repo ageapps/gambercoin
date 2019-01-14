@@ -3,6 +3,8 @@ package node
 import (
 	"log"
 
+	"github.com/ageapps/gambercoin/pkg/logger"
+
 	"github.com/ageapps/gambercoin/pkg/router"
 
 	"github.com/ageapps/gambercoin/pkg/stack"
@@ -12,9 +14,12 @@ import (
 
 // AddPeers peers
 func (node *Node) AddPeers(newPeers *utils.PeerAddresses) {
-	node.mux.Lock()
-	node.peers.AppendPeers(newPeers)
-	node.mux.Unlock()
+	if newPeers != nil && len(newPeers.GetAdresses()) > 0 {
+		node.mux.Lock()
+		node.peers.AppendPeers(newPeers)
+		logger.LogPeers(node.peers.String())
+		node.mux.Unlock()
+	}
 }
 
 // AddAndNotifyPeer func
@@ -85,4 +90,18 @@ func (node *Node) GetUsedPeers() map[string]bool {
 	node.mux.Lock()
 	defer node.mux.Unlock()
 	return node.usedPeers
+}
+
+// ReceivedRouteAck funct
+func (node *Node) ReceivedRouteAck() bool {
+	node.mux.Lock()
+	defer node.mux.Unlock()
+	return node.receivedRoute
+}
+
+// SetReceivedRoute funct
+func (node *Node) SetReceivedRoute(received bool) {
+	node.mux.Lock()
+	defer node.mux.Unlock()
+	node.receivedRoute = received
 }

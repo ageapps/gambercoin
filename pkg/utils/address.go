@@ -81,6 +81,21 @@ func (peers *PeerAddresses) appendPeer(address *PeerAddress) {
 	peers.Addresses = append(peers.Addresses, *address)
 }
 
+// RemovePeer from addresses
+func (peers *PeerAddresses) RemovePeer(address string) {
+	peers.mux.Lock()
+	defer peers.mux.Unlock()
+	newArr := []PeerAddress{}
+	for _, savedAddress := range peers.Addresses {
+		add := savedAddress
+		if add.String() == address {
+			continue
+		}
+		newArr = append(newArr, add)
+	}
+	peers.Addresses = newArr
+}
+
 // AppendPeers func
 func (peers *PeerAddresses) AppendPeers(addresses *PeerAddresses) {
 	for _, address := range addresses.GetAdresses() {

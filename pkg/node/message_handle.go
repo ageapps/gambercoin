@@ -35,17 +35,15 @@ func (node *Node) handlePeerPrivateMessage(msg *data.PrivateMessage, address str
 }
 
 func (node *Node) handleRumorMessage(msg *monguer.RumorMessage, address string) {
-	newEntry := node.router.AddEntry(msg.Origin, address, false)
+	node.router.AddEntry(msg.Origin, address, false)
 	isRouteRumor := msg.IsRouteRumor()
 	routeNode := "" // setted only for reoute status
 
 	if isRouteRumor {
 		logger.Logv("Received ROUTE RUMOR from %v", msg.Origin)
 		routeNode = msg.Origin
-		if newEntry {
-			// -> start monguering route
-			node.mongerMessage(msg, address)
-		}
+		// -> start monguering route
+		node.mongerMessage(msg, address)
 	} else {
 		logger.LogRumor((*msg).Origin, address, fmt.Sprint((*msg).ID), (*msg).Text)
 		msgStatus := node.rumorStack.CompareMessage(msg.Origin, msg.ID)
@@ -81,7 +79,7 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 
 	if isRouteStatus {
 		if msg.Route != node.Name {
-			node.router.AddEntry(msg.Route, address, false)
+			node.router.AddEntry(msg.Route, address, true)
 		}
 		if handler != nil {
 			handler.SignalChannel <- signal.Stop

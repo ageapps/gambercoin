@@ -15,10 +15,8 @@ allpackages = $(if $(__allpackages),,$(eval __allpackages := $$(_allpackages)))$
 
 
 
-t = 3 # timer
 n = 4 # node number
 f = test.png
-h = 13fa82c9e76e18e1e8587231be1aa955f3469a20a1b085a28326339f36108ddd
 d = nodeA
 s = test
 
@@ -70,13 +68,13 @@ search:
 	go run --race ./cmd/client -UIPort=1000$(n) -keywords=$(s)
 
 serve:
-	cd ./server && go run --race .
+	go run --race ./cmd/node_server
 
 private:
 	go run --race ./cmd/client -UIPort=10002 -msg=Hello -Dest=$(d)
 	
 front:	
-	location=~/git/gambercoin-App; \
+	location=~/git/gambercoin-app; \
 	current=$(shell pwd) && cd $$location && npm run build && cd $$current; \
 	bash -c "rm -r web/*"; \
 	cp -R $$location/dist/* ./web 

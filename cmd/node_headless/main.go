@@ -67,7 +67,7 @@ func main() {
 		shortName = strings.Split(*name, "-")[0]
 
 	}
-	logger.CreateLogger(shortName, fmt.Sprint(nodepAddr.Port), logger.Info)
+	logger.CreateLogger(shortName, fmt.Sprint(nodepAddr.Port), logger.Verbose)
 
 	clientConn := listenToUDPClient(clientAddress, clientChannel)
 	defer clientConn.Close()

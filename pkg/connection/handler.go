@@ -47,6 +47,7 @@ func (handler *ConnectionHandler) Close() {
 		logger.Logw("Error closing connection: %v", err)
 		// log.Fatal(err1)
 	}
+	logger.Logi("Closing connection %v", handler.Name)
 	handler.Stop()
 }
 
@@ -85,9 +86,11 @@ func (handler *ConnectionHandler) startListening(messages chan data.UDPMessage, 
 			logger.Logw("Error reading packet")
 			break
 		}
-		go func() {
-			messages <- msg
-		}()
+		go func(running bool) {
+			if running {
+				messages <- msg
+			}
+		}(handler.running)
 	}
 	close(messages)
 }

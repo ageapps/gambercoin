@@ -15,8 +15,8 @@ func main() {
 	var UIPort = flag.String("port", "8080", "Port for the UI client")
 	flag.Parse()
 
-	router := http_server.NewRouter()
-	log.Println("Listining on port: " + *UIPort)
+	router := http_server.NewRouter(false)
+	log.Println("Listening on port: " + *UIPort)
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowCredentials: true,

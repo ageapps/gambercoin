@@ -38,7 +38,6 @@ type MongerHandler struct {
 	currentMessage         *RumorMessage
 	currentPeer            string
 	active                 bool
-	routeMonguer           bool
 	currentlySynchronicing bool
 	peers                  *utils.PeerAddresses
 	timer                  *time.Timer
@@ -49,7 +48,7 @@ type MongerHandler struct {
 }
 
 // NewMongerHandler function
-func NewMongerHandler(originPeer, Name string, isRouter bool, msg *RumorMessage, connectPeers *utils.PeerAddresses) *MongerHandler {
+func NewMongerHandler(originPeer, Name string, msg *RumorMessage, connectPeers *utils.PeerAddresses) *MongerHandler {
 	used := make(map[string]bool)
 	if originPeer != "" {
 		used[originPeer] = true
@@ -60,7 +59,6 @@ func NewMongerHandler(originPeer, Name string, isRouter bool, msg *RumorMessage,
 		currentMessage:         msg,
 		currentPeer:            "",
 		active:                 false,
-		routeMonguer:           isRouter,
 		currentlySynchronicing: false,
 		peers:                  connectPeers,
 		timer:                  &time.Timer{},
@@ -195,7 +193,7 @@ func (handler *MongerHandler) GetMonguerPeer() string {
 func (handler *MongerHandler) IsRouteMonguer() bool {
 	handler.Lock()
 	defer handler.Unlock()
-	return handler.routeMonguer
+	return handler.currentMessage.IsRouteRumor()
 }
 
 // getPeers function

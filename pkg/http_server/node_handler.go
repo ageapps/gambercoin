@@ -2,6 +2,7 @@ package http_server
 
 import (
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/ageapps/gambercoin/pkg/stack"
@@ -15,7 +16,8 @@ import (
 
 func NewNodePool() *NodePool {
 	return &NodePool{
-		nodes: make(map[string]*node.Node),
+		nodes:           make(map[string]*node.Node),
+		messageChannels: make(map[string]*chan client.Message),
 	}
 }
 
@@ -68,7 +70,7 @@ func (pool *NodePool) findGossiper(name, address string) (*node.Node, bool) {
 var (
 	gossiperPool = NewNodePool()
 	// DebugLevel default level
-	DebugLevel = logger.Verbose
+	DebugLevel = logger.Info
 )
 
 // StatusResponse struct
@@ -77,8 +79,10 @@ type StatusResponse struct {
 	Name    string `json:"name"`
 }
 
-func startGossiper(name, address string, peers *utils.PeerAddresses) string {
-	logger.CreateLogger(name, address, DebugLevel)
+func startNode(name, address string, peers *utils.PeerAddresses) string {
+	shortName := strings.Split(name, "-")[0]
+
+	logger.CreateLogger(shortName, strings.Split(address, ":")[1], DebugLevel)
 	targetGossiper, found := gossiperPool.findGossiper(name, address)
 
 	if !found {
@@ -91,15 +95,18 @@ func startGossiper(name, address string, peers *utils.PeerAddresses) string {
 		if peers != nil && len(peers.GetAdresses()) > 0 {
 			go targetGossiper.AddPeers(peers)
 		}
-		messageChannels := make(chan client.Message)
-		if err := targetGossiper.Start(messageChannels); err != nil {
-			log.Fatal(err)
-		}
+		messageChannel := make(chan client.Message)
+		go func(channel chan client.Message) {
+			if err := targetGossiper.Start(channel); err != nil {
+				log.Fatal(err)
+			}
+		}(messageChannel)
+
 		// go func() {
 		// 	targetGossiper.StartBlockChain()
 		// }()
 		gossiperPool.addNode(targetGossiper)
-		gossiperPool.addMsgChannel(targetGossiper.Name, &messageChannels)
+		gossiperPool.addMsgChannel(targetGossiper.Name, &messageChannel)
 	}
 	return targetGossiper.Name
 }

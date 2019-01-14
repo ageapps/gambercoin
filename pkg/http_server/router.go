@@ -3,6 +3,7 @@ package http_server
 import (
 	"net/http"
 
+	"github.com/ageapps/gambercoin/pkg/utils"
 	"github.com/gorilla/mux"
 )
 
@@ -10,17 +11,19 @@ import (
 type Routes []Route
 
 // MAX_UPLOAD_SIZE contant
-const MAX_UPLOAD_SIZE = 1000 * 1024 // 10 MB
+// const MAX_UPLOAD_SIZE = 1000 * 1024 // 10 MB
 
 // NewRouter func
-func NewRouter() *mux.Router {
+func NewRouter(logRequests bool) *mux.Router {
 
 	router := mux.NewRouter().StrictSlash(true)
 	for _, route := range routes {
 		var handler http.Handler
 
 		handler = route.HandlerFunc
-		// handler = Logger(handler, route.Name)
+		if logRequests {
+			handler = Logger(handler, route.Name)
+		}
 		router.
 			Methods(route.Method).
 			Path(route.Pattern).
@@ -28,9 +31,7 @@ func NewRouter() *mux.Router {
 			Handler(handler)
 	}
 
-	fsWeb := http.FileServer(http.Dir("../web/"))
-
-	router.PathPrefix("/").Handler(fsWeb)
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir(utils.GetRootPath() + "/web")))
 
 	return router
 }

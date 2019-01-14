@@ -88,6 +88,14 @@ func (peers *PeerAddresses) AppendPeers(addresses *PeerAddresses) {
 	}
 }
 
+// Add PeerAddreses from string, return if it was added
+func (peers *PeerAddresses) Add(value string) (new bool, err error) {
+	initial := len(peers.GetAdresses())
+	err = peers.Set(value)
+	new = (len(peers.GetAdresses()) - initial) > 0
+	return new, err
+}
+
 // Set PeerAddreses from string
 func (peers *PeerAddresses) Set(value string) error {
 

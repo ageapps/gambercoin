@@ -33,8 +33,8 @@ type Node struct {
 	privateStack    stack.MessageStack
 	router          *router.Router
 	monguerPocesses map[string]*monguer.MongerHandler
-	rumorCounter    *utils.Counter // [name] address
-	privateCounter  *utils.Counter // [name] address
+	rumorCounter    *utils.Counter
+	privateCounter  *utils.Counter
 	mux             sync.Mutex
 	usedPeers       map[string]bool
 	running         bool
@@ -115,7 +115,7 @@ func (node *Node) listenToPeers() error {
 		if pkt.Address == "" {
 			return fmt.Errorf("message received is not valid")
 		}
-		node.handlePeerPacket(&pkt.Packet, pkt.Address)
+		node.handlePeerPacket(pkt.Packet, pkt.Address)
 	}
 	return nil
 }
@@ -135,14 +135,17 @@ func (node *Node) handleClientMessage(msg *client.Message) {
 	case msg.IsDirectMessage():
 		node.handleClientDirectMessage(msg)
 
-	default:
+	case msg.Text != "":
 		logger.LogClient((*msg).Text)
 		// Reset used peers for timers
 		go node.resetUsedPeers()
 		id := node.rumorCounter.Increment()
 		rumorMessage := monguer.NewRumorMessage(node.Name, id, msg.Text)
 		node.rumorStack.AddMessage(*rumorMessage)
-		node.mongerMessage(rumorMessage, "", false)
+		node.mongerMessage(rumorMessage, "")
+
+	default:
+		logger.Logw("Client message not recognized")
 	}
 }
 
@@ -157,16 +160,19 @@ func (node *Node) handleClientDirectMessage(msg *client.Message) {
 	node.sendPrivateMessage(privateMessage)
 }
 
-func (node *Node) handlePeerPacket(packet *data.GossipPacket, originAddress string) {
+func (node *Node) handlePeerPacket(packet data.GossipPacket, originAddress string) {
 	if originAddress != node.Address.String() {
-		err := node.GetPeers().Set(originAddress)
+		new, err := node.GetPeers().Add(originAddress)
 		if err != nil {
 			log.Fatal(err)
+		}
+		if new {
+			logger.LogPeers(node.peers.String())
 		}
 	}
 
 	packetType := packet.GetPacketType()
-	logger.Logw("Received packet peer: " + packetType)
+	logger.Logw("Received packet %v from <%v>: ", packetType, originAddress)
 	switch packetType {
 	case data.PACKET_STATUS:
 		node.handleStatusMessage(packet.Status, originAddress)
@@ -181,7 +187,6 @@ func (node *Node) handlePeerPacket(packet *data.GossipPacket, originAddress stri
 	case data.PACKET_SIMPLE:
 		msg := *packet.Simple
 		logger.LogSimple(msg.OriginalName, msg.RelayPeerAddr, msg.Contents)
-		logger.LogPeers(node.peers.String())
 		node.handleSimpleMessage(packet.Simple, originAddress)
 	default:
 		logger.Logw("Message not recognized")
@@ -189,10 +194,10 @@ func (node *Node) handlePeerPacket(packet *data.GossipPacket, originAddress stri
 	}
 }
 
-func (node *Node) mongerMessage(msg *monguer.RumorMessage, originPeer string, routerMonguering bool) {
+func (node *Node) mongerMessage(msg *monguer.RumorMessage, originPeer string) {
 	node.mux.Lock()
-	name := fmt.Sprint(len(node.monguerPocesses), "/", routerMonguering)
-	monguerProcess := monguer.NewMongerHandler(originPeer, name, routerMonguering, msg, node.peers)
+	name := fmt.Sprint(len(node.monguerPocesses), "/", msg.IsRouteRumor())
+	monguerProcess := monguer.NewMongerHandler(originPeer, name, msg, node.peers)
 	node.mux.Unlock()
 
 	node.registerMonguerProcess(monguerProcess)

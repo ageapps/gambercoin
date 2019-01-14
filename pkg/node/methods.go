@@ -3,9 +3,10 @@ package node
 import (
 	"log"
 
+	"github.com/ageapps/gambercoin/pkg/router"
+
 	"github.com/ageapps/gambercoin/pkg/stack"
 
-	"github.com/ageapps/gambercoin/pkg/router"
 	"github.com/ageapps/gambercoin/pkg/utils"
 )
 

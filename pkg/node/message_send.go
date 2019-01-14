@@ -30,18 +30,9 @@ func (node *Node) sendRumorMessage(destinationAdress, origin string, id uint32) 
 }
 
 func (node *Node) sendRouteRumorMessage(destinationAdress string) {
-	latestMsgID := node.rumorCounter.GetValue() + 1
-	routeRumorMessage := monguer.NewRumorMessage(node.Name, latestMsgID, "")
+	routeRumorMessage := monguer.NewRumorMessage(node.Name, uint32(0), "")
 	packet := &data.GossipPacket{Rumor: routeRumorMessage}
-	logger.Logv("Sending ROUTE RUMOR ID:%v", latestMsgID)
-	node.peerConection.SendPacketToPeer(destinationAdress, packet)
-}
-
-func (node *Node) broadcastRouteRumorMessage(destinationAdress string) {
-	latestMsgID := node.rumorCounter.GetValue() + 1
-	routeRumorMessage := monguer.NewRumorMessage(node.Name, latestMsgID, "")
-	packet := &data.GossipPacket{Rumor: routeRumorMessage}
-	logger.Logv("Sending ROUTE RUMOR ID:%v", latestMsgID)
+	logger.Logv("Sending ROUTE RUMOR")
 	node.peerConection.SendPacketToPeer(destinationAdress, packet)
 }
 

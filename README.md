@@ -41,6 +41,7 @@ Below you can find the high-level design:
 ## Features over Peerster
 
 + Keep connected list updated with a failure detector.
++ Optimized routing
 + Sync of the full blockchain for new nodes.
 + 
 

@@ -11,7 +11,7 @@ import (
 // Router struct
 type Router struct {
 	table RoutingTable
-	mux   sync.Mutex
+	sync.Mutex
 }
 
 // RoutingTable table map
@@ -26,17 +26,15 @@ func NewRouter() *Router {
 
 // GetTable returns routing table
 func (router *Router) GetTable() *RoutingTable {
-	router.mux.Lock()
-	defer router.mux.Unlock()
+	router.Lock()
+	defer router.Unlock()
 	return &router.table
 }
 
-// SetEntry adds entry if there's none for the origin address or there's a new one
-func (router *Router) SetEntry(origin, address string) bool {
-	router.mux.Lock()
-	defer router.mux.Unlock()
+// AddEntry adds entry if there's none for the origin address or there's a new one
+func (router *Router) AddEntry(origin, address string) bool {
 	isNew := false
-	oldValue, ok := router.table[origin]
+	oldValue, ok := router.GetAddress(origin)
 
 	if !ok || oldValue.String() != address {
 		isNew = true
@@ -46,21 +44,25 @@ func (router *Router) SetEntry(origin, address string) bool {
 			logger.Logw("Error updating router entry")
 			return false
 		}
-		router.addEntry(origin, &newEntry)
+		router.setEntry(origin, newEntry)
 	}
 	return isNew
 }
 
-func (router *Router) addEntry(origin string, entry *utils.PeerAddress) {
+func (router *Router) setEntry(origin string, entry utils.PeerAddress) {
 	logger.Logv("Route entry appended - Origin:%v", origin)
-	router.table[origin] = entry
+
+	router.Lock()
+	router.table[origin] = &entry
+	router.Unlock()
+
 	logger.LogDSDV(origin, entry.String())
 }
 
 // GetAddress returns de addess gibben an identifier
 func (router *Router) GetAddress(origin string) (entry *utils.PeerAddress, found bool) {
-	router.mux.Lock()
-	defer router.mux.Unlock()
+	router.Lock()
+	defer router.Unlock()
 
 	value, ok := router.table[origin]
 	if !ok || value == nil {
@@ -76,8 +78,8 @@ func (router *Router) GetTableSize() int {
 
 // GetRandomDestination func
 func (router *Router) GetRandomDestination(usedPeers map[string]int) string {
-	router.mux.Lock()
-	defer router.mux.Unlock()
+	router.Lock()
+	defer router.Unlock()
 
 	var keys []string
 	for dest := range router.table {

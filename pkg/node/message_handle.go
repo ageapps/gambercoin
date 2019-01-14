@@ -35,45 +35,41 @@ func (node *Node) handlePeerPrivateMessage(msg *data.PrivateMessage, address str
 }
 
 func (node *Node) handleRumorMessage(msg *monguer.RumorMessage, address string) {
-	msgStatus := node.rumorStack.CompareMessage(msg.Origin, msg.ID)
+	newEntry := node.router.AddEntry(msg.Origin, address)
 	isRouteRumor := msg.IsRouteRumor()
-	routeNode := ""
+	routeNode := "" // setted only for reoute status
+
 	if isRouteRumor {
-		logger.Logv("Received ROUTE RUMOR")
+		logger.Logv("Received ROUTE RUMOR from %v", msg.Origin)
 		routeNode = msg.Origin
+		if newEntry {
+			// -> start monguering route
+			node.mongerMessage(msg, address)
+		}
 	} else {
 		logger.LogRumor((*msg).Origin, address, fmt.Sprint((*msg).ID), (*msg).Text)
-	}
-	logger.LogPeers(node.peers.String())
+		msgStatus := node.rumorStack.CompareMessage(msg.Origin, msg.ID)
 
-	node.router.SetEntry(msg.Origin, address)
+		if msgStatus == stack.NEW_MESSAGE {
 
-	if msgStatus == stack.NEW_MESSAGE {
-
-		// If I get own messages that i didn´t
-		// have, set internal rumorCounter
-		if msg.Origin == node.Name && node.rumorCounter.GetValue() > msg.ID {
-			node.rumorCounter.SetValue(msg.ID)
-			return
-		}
-
-		if !isRouteRumor {
+			// If I get own messages that i didn´t
+			// have, set internal rumorCounter
+			if msg.Origin == node.Name && node.rumorCounter.GetValue() > msg.ID {
+				node.rumorCounter.SetValue(msg.ID)
+				return
+			}
 			// Reset used peers for timers
 			go node.resetUsedPeers()
 
 			// message is new
 			// -> add it to stack
 			node.rumorStack.AddMessage(*msg)
+			// -> start monguering message
+			node.mongerMessage(msg, address)
 		}
-		// -> acknowledge message
-		node.sendStatusMessage(address, routeNode)
-		// -> start monguering message
-		node.mongerMessage(msg, address, isRouteRumor)
-	} else if !isRouteRumor {
-		// message received is not new
-		// send my status msg
-		node.sendStatusMessage(address, "")
 	}
+	// -> acknowledge message
+	node.sendStatusMessage(address, routeNode)
 }
 
 func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string) {
@@ -84,9 +80,6 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 	logger.Logv("STATUS received Route: %v", isRouteStatus)
 
 	if isRouteStatus {
-		if msg.Route != node.Name {
-			node.router.SetEntry(msg.Route, address)
-		}
 		if handler != nil {
 			handler.SignalChannel <- signal.Stop
 		}
@@ -109,7 +102,6 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 		logStr += fmt.Sprintf("peer %v nextID %v ", status.Identifier, status.NextID)
 	}
 	logger.LogStatus(logStr, address)
-	logger.LogPeers(node.peers.String())
 	inSync := true
 
 	for _, status := range msg.Want {

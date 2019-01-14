@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"reflect"
 
 	"github.com/ageapps/gambercoin/pkg/utils"
+	"github.com/google/uuid"
 )
 
 // Health message
@@ -17,11 +19,6 @@ func Health(w http.ResponseWriter, r *http.Request) {
 	// A very simple health check.
 	status := "HEALTHY"
 	send(&w, &status)
-}
-
-// Index page
-func Index(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to gambercoin!")
 }
 
 // GetMessages func
@@ -255,9 +252,21 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 // Start node
 func Start(w http.ResponseWriter, r *http.Request) {
 
-	params := *readBody(&w, r)
+	body := readBody(&w, r)
+	if body == nil {
+		sendError(&w, errors.New("Not enough parameters"))
+		return
+	}
+	params := *body
+	name, found := params["name"].(string)
+	if !found {
+		uuid, err := uuid.NewRandom()
+		if err != nil {
+			log.Fatal(err)
+		}
+		name = uuid.String()
+	}
 
-	name := params["name"].(string)
 	var peers = utils.PeerAddresses{}
 	var gossipAddr = utils.PeerAddress{}
 
@@ -273,7 +282,7 @@ func Start(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	gossiperName := startGossiper(name, gossipAddr.String(), &peers)
+	gossiperName := startNode(name, gossipAddr.String(), &peers)
 	if gossiperName == "" {
 		sendError(&w, errors.New("Error starting node"))
 		return

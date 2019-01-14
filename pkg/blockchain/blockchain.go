@@ -1,11 +1,7 @@
 package blockchain
 
 import (
-	"encoding/hex"
-	"fmt"
-	"log"
 	"sync"
-	"time"
 
 	"github.com/ageapps/gambercoin/pkg/logger"
 	"github.com/ageapps/gambercoin/pkg/utils"
@@ -24,68 +20,136 @@ const (
 
 // BlockChain struct
 type BlockChain struct {
-	minig          bool
-	CanonicalChain Chain
-	SideChains     []*Chain
+	sendChannel    chan<- ChainMessage //  channel to send messages to node
+	ReceiveChannel chan ChainMessage   // write-only channel to receive messages from node
+
+	minig       bool
+	active      bool //   monguer handler active state
+	blockTime   uint64
+	nodeAddress string
+	minerHash   utils.HashValue
+
+	canonicalChain Chain
+	sideChains     []*Chain
 	currentBlock   Block
 	prevHash       utils.HashValue
+
 	tansactionPool map[string]*Transaction
 	blockPool      map[string]*Block
-	mux            sync.Mutex
-	quitChannel    chan bool
-	stopped        bool
-	MinedBlocks    chan *Block
-	TxChannel      chan *Transaction
-	BlockChannel   chan *Block
-	BlockTime      uint64
+
+	quitChannel chan bool
+
+	sync.Mutex
 }
 
 // NewBlockChain func
-func NewBlockChain() *BlockChain {
+func NewBlockChain(nodeAddress string, minerHash utils.HashValue) *BlockChain {
 	return &BlockChain{
-		CanonicalChain: NewEmptyChain(),
-		minig:          false,
+		minig:       false,
+		active:      false,
+		nodeAddress: nodeAddress,
+		minerHash:   minerHash,
+
+		canonicalChain: NewEmptyChain(),
+		sideChains:     []*Chain{},
 		prevHash:       [32]byte{},
+
 		tansactionPool: make(map[string]*Transaction),
 		blockPool:      make(map[string]*Block),
-		quitChannel:    make(chan bool),
-		stopped:        false,
-		MinedBlocks:    make(chan *Block),
-		TxChannel:      make(chan *Transaction),
-		BlockChannel:   make(chan *Block),
-		BlockTime:      uint64(2 * time.Second),
+
+		quitChannel: make(chan bool),
 	}
 
 }
 
 // Start blockchain process
-func (bc *BlockChain) Start(onStopHandler func()) {
-	for {
-		select {
-		case transaction := <-bc.getTxChannel():
-			bc.addTransaction(transaction)
-		case block := <-bc.getBlockChannel():
-			bc.addBlock(block, false)
-		case <-bc.quitChannel:
-			bc.setMining(false)
-			logger.Logf("Finishing Blockchain")
-			bc.CloseChannels()
-			onStopHandler()
-			return
+func (bc *BlockChain) Start(onStopHandler func()) <-chan ChainMessage {
+	bc.sendChannel = make(chan ChainMessage)
+	bc.ReceiveChannel = make(chan ChainMessage)
+	go func() {
+		for {
+			select {
+			case message := <-bc.ReceiveChannel:
+				if message.IsTx() {
+					tx := message.Tx
+					bc.processTransaction(tx)
+				} else if message.IsBlock() {
+					bl := message.Block
+					bc.processBlock(bl)
+				} else {
+					logger.Logw("Message received not recognized")
+				}
+
+			case <-bc.quitChannel:
+				bc.setMining(false)
+				logger.Logf("Finishing Blockchain")
+				close(bc.sendChannel)
+				onStopHandler()
+				return
+			}
 		}
+	}()
+	return bc.ReceiveChannel
+}
+
+func (bc *BlockChain) processTransaction(tx *Transaction) {
+	if !bc.isTransactionValid(tx) {
+		return
+	}
+	bc.addToTransactionPool(tx)
+	if !bc.isMining() {
+		bc.buildBlockAndMine()
 	}
 }
 
-// CanAddBlock to the blockchain
-func (bc *BlockChain) CanAddBlock(bl *Block) bool {
-	return !(bc.getBlockType(bl) == BLOCK_OLD)
+func (bc *BlockChain) processBlock(bl *Block) {
+	if !bc.isBlockValid(bl) {
+		return
+	}
+	bc.addBlock(bl, false)
+}
+
+func (bc *BlockChain) buildBlockAndMine() {
+	canonicalChain := bc.getCanonicalChain()
+	for _, block := range bc.getBlockPool() {
+		if canonicalChain.isNextBlockInChain(block) {
+			logger.Logf("Found stored block matching prev - %v", block.String())
+			bc.processBlock(block)
+			return
+		}
+	}
+	// Check mining and transactions available
+	if len(bc.getTransactionPool()) > 0 && !bc.isMining() {
+		// -> Build new block from prevhash
+		currentBlock := *NewBlock(bc.getPrevHash())
+		// -> Add coinbase to block
+		coinBase := Transaction{
+			Input:  [32]byte{},
+			Output: bc.minerHash,
+			Amount: uint32(1),
+		}
+		currentBlock.AppendTransaction(coinBase)
+		// -> Fill block with transactions from pool
+		for _, tx := range bc.getTransactionPool() {
+			currentBlock.AppendTransaction(*tx)
+		}
+		// -> Set as Current block
+		bc.setCurrentBlock(currentBlock)
+		logger.Logf("Mining current block with transactions %v", len(currentBlock.Transactions))
+		// Mine it
+		go func() {
+			bc.mine()
+		}()
+	} else {
+		logger.Logf("No transactions to mine/ already minig...")
+	}
 }
 
 func (bc *BlockChain) mine() {
 	bc.setMining(true)
 	currentBlock := bc.getCurrentBlock()
 	prev := bc.getPrevHash()
-	logger.Logf("Expecting - %v", hex.EncodeToString(prev[:]))
+	logger.Logf("Expecting - %v", prev.String())
 	logger.Logf("Mining block with parent - %v", currentBlock.PrintPrev())
 	init := getTimestamp()
 	for bc.isMining() {
@@ -95,140 +159,13 @@ func (bc *BlockChain) mine() {
 		if checkZeros(nonce) {
 			bc.setBlockTime(uint64(getTimestamp() - init))
 			logger.LogFoundBlock(currentBlock.String())
-			bc.sendToBlockChannel(&currentBlock)
-			bc.sendToMinedChannel(&currentBlock)
+			// Send block to main routine to process it
+			bc.sendBlockToProcess(&currentBlock)
 			break
 		}
-		// fmt.Printf("|")
 	}
 	logger.Logf("FINISHED MINIG")
 	bc.setMining(false)
-}
-
-// CloseChannels used by process
-func (bc *BlockChain) CloseChannels() {
-	if bc.isStopped() {
-		close(bc.getMinedChannel())
-		close(bc.getBlockChannel())
-		close(bc.getTxChannel())
-	}
-}
-
-// checkZeros
-func checkZeros(nonce [32]byte) bool {
-	prefix := nonce[0:NumberOfZeros]
-	flag := true
-	for _, num := range prefix {
-		flag = flag && int(num) == 0
-	}
-
-	return flag
-}
-
-// IsTransactionSaved in transaction pool
-func (bc *BlockChain) IsTransactionSaved(tx *Transaction) bool {
-	_, ok := bc.getTransactionPool()[tx.String()]
-	if ok {
-		return true
-	}
-	return bc.isTransactionInCanonicalChain(tx)
-}
-
-func (bc *BlockChain) addTransaction(transaction *Transaction) {
-	// store it in mempool
-	hash := bc.addToTransactionPool(transaction)
-	logger.Logf("Storing - %v in TXpool", hash.String())
-	if !bc.isMining() {
-		bc.buildBlockAndMine()
-	}
-}
-
-func (bc *BlockChain) addBlock(newBlock *Block, forking bool) bool {
-	if !checkZeros(newBlock.Nonce) {
-		return false
-	}
-	blockType := bc.getBlockType(newBlock)
-	logger.Logf("Adding Block of type %v", blockType)
-	switch blockType {
-	case BLOCK_CURRENT:
-		// stop mining
-		bc.setMining(false)
-		bc.addToBlockChain(newBlock)
-		// reference the prev hash to the new added block
-		bc.setPrevHash(newBlock.Nonce)
-		if !bc.checkTransactionsInCurrentBlock(newBlock) {
-			logger.Logf("Transactions NOT found in current block")
-			// there is no transactions in the block that i am currently minig,
-			// jclean transaction pool from new block and keep mining
-			bc.cleanTransactionPoolByAddedBlock(newBlock)
-			if !forking {
-				bc.buildBlockAndMine()
-			}
-		} else {
-			logger.Logf("Transactions found in current block")
-			fmt.Println(newBlock.Transactions)
-			fmt.Println(bc.getCurrentBlock().Transactions)
-			// there is transactions in the currentBlock,
-			// add them again to the Txpool, clean transaction pool from new block,
-			// reset current block and rebuild it to mine again
-			bc.addBlockTransactionsToPool(bc.getCurrentBlock())
-			bc.cleanTransactionPoolByAddedBlock(newBlock)
-			bc.resetCurrentBlock()
-			if !forking {
-				bc.buildBlockAndMine()
-			}
-		}
-
-		return true
-	case BLOCK_UNKOWN_PARENT:
-		if forking {
-			log.Fatal("SOMETHING IS WRONG, UNKOWN PARENT FOUND WHILE FORKING")
-		}
-		// just save it
-		sideChainIndex, parentIndex := bc.addToBlockPool(newBlock)
-		if sideChainIndex >= 0 && parentIndex >= 0 {
-			logger.Logf("Side chains found")
-			bc.setMining(false)
-			bc.forkCanonicalChain(sideChainIndex, parentIndex)
-			bc.buildBlockAndMine()
-		} else {
-			logger.Logf("NO Side chains found")
-		}
-
-		return true
-	case BLOCK_OLD:
-		logger.Logf("Block already in blockchain, dropping it...")
-		// if it's an old newBlock, just discard it
-		return false
-	}
-	return false
-}
-
-func (bc *BlockChain) getBlockType(newBlock *Block) string {
-	// same prev hash than out prev block
-	canonicalChain := bc.getCanonicalChain()
-	if canonicalChain.isNextBlockInChain(newBlock) {
-		return BLOCK_CURRENT
-	}
-	_, ok := bc.getBlockPool()[newBlock.String()]
-	if ok {
-		logger.Logf("Block already in pool")
-		return BLOCK_OLD
-	}
-
-	if existing := bc.isBlockInCanonicalChain(newBlock); existing {
-		logger.Logf("Block already in chain")
-		return BLOCK_OLD
-	}
-
-	return BLOCK_UNKOWN_PARENT
-}
-
-func (bc *BlockChain) cleanTransactionPoolByAddedBlock(newBlock *Block) {
-	// Look in tx pool
-	for _, newTx := range newBlock.Transactions {
-		bc.deleteFromTxPool(newTx.String())
-	}
 }
 
 func (bc *BlockChain) addBlockTransactionsToPool(newBlock Block) {
@@ -256,54 +193,16 @@ func (bc *BlockChain) checkTransactionsInCurrentBlock(newBlock *Block) bool {
 	return false
 }
 
-func (bc *BlockChain) deleteFromTxPool(hash string) {
-	bc.mux.Lock()
-	delete(bc.tansactionPool, hash)
-	bc.mux.Unlock()
-}
-
-func (bc *BlockChain) buildBlockAndMine() {
-	canonicalChain := bc.getCanonicalChain()
-	for _, block := range bc.getBlockPool() {
-		if canonicalChain.isNextBlockInChain(block) {
-			logger.Logf("Found stored block matching prev - %v", block.String())
-			bc.sendToBlockChannel(block)
-			return
-		}
-	}
-	if len(bc.getTransactionPool()) > 0 && !bc.isMining() {
-		currentBlock := *NewBlock(bc.getPrevHash())
-		for _, tx := range bc.getTransactionPool() {
-			currentBlock.AppendTransaction(*tx)
-		}
-		bc.setCurrentBlock(currentBlock)
-		logger.Logf("Mining current block with transactions %v", len(currentBlock.Transactions))
-		go func() {
-			bc.mine()
-		}()
-	} else {
-		logger.Logf("No transactions to mine...")
-	}
-}
-
 func (bc *BlockChain) addToBlockChain(block *Block) {
-	bc.mux.Lock()
+	// reference the prev hash to the new added block
+	bc.setPrevHash(block.Nonce)
+
+	bc.Lock()
 	logger.Logf("Adding Block to Canonical Chain - %v", block.String())
 	logger.Logf("With prev - %v", block.PrintPrev())
-	bc.CanonicalChain.appendBlock(block)
-	bc.mux.Unlock()
+	bc.canonicalChain.appendBlock(block)
+	bc.Unlock()
 	bc.logChain()
-}
-
-func (bc *BlockChain) addToBlockPool(block *Block) (sideChainIndex, parentIndex int) {
-	logger.Logf("Adding Block to Blok Pool - %v", block.String())
-	bc.mux.Lock()
-	bc.blockPool[block.String()] = block
-	bc.mux.Unlock()
-	// everytime a block is added to the block pool
-	// explore and build sidechains
-	bc.buildSideChains(block)
-	return bc.checkLongestChain()
 }
 
 // build all sidechains possible
@@ -344,15 +243,6 @@ func (bc *BlockChain) forkCanonicalChain(sideChainIndex, parentIndex int) {
 	}
 }
 
-func (bc *BlockChain) findNextBlock(block *Block) *Block {
-	for _, newBlock := range bc.getBlockPool() {
-		if hex.EncodeToString(newBlock.PrevHash[:]) == hex.EncodeToString(block.Nonce[:]) {
-			return newBlock
-		}
-	}
-	return nil
-}
-
 func (bc *BlockChain) checkLongestChain() (sidechain, parentBlock int) {
 	sideChains := bc.getSideChains()
 	canonicalChain := bc.getCanonicalChain()
@@ -362,7 +252,7 @@ func (bc *BlockChain) checkLongestChain() (sidechain, parentBlock int) {
 		for blockIndex := 0; blockIndex < canonicalChain.size(); blockIndex++ {
 			block := canonicalChain.Blocks[blockIndex]
 			if block.IsNextBlock(chainHead) {
-				logger.Logf("Parent of SideChain found in CanonicalChain")
+				logger.Logf("Parent of SideChain found in canonicalChain")
 				// if a block in the canonical chain is the parent
 				// of a head of a chain, lets check the sizes
 				headChainSize := blockIndex + 1
@@ -386,11 +276,28 @@ func (bc *BlockChain) checkLongestChain() (sidechain, parentBlock int) {
 
 // Stop func
 func (bc *BlockChain) Stop() {
-	logger.Logf("Stopping BlockChain handler")
-	if !bc.isStopped() {
-		bc.setStopped(true)
+	bc.setMining(false)
+	if bc.isActive() {
+		logger.Logf("Stopping BlockChain handler")
+		bc.setActive(false)
 		close(bc.quitChannel)
-		return
+	} else {
+		logger.Logf("BlockChain already stopped....")
 	}
-	logger.Logf("BlockChain already stopped....")
+}
+
+func (bc *BlockChain) GetBalanceOfHash(hash utils.HashValue) int {
+	cc := bc.getCanonicalChain()
+	var balance int
+	for _, bl := range cc.Blocks {
+		for _, tx := range bl.Transactions {
+			if tx.Input.Equals(hash.String()) {
+				balance = balance - int(tx.Amount)
+			}
+			if tx.Output.Equals(hash.String()) {
+				balance = balance + int(tx.Amount)
+			}
+		}
+	}
+	return balance
 }

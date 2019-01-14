@@ -6,17 +6,34 @@ type TxMessage struct {
 	HopLimit uint32
 }
 
-// TransactionBundle struct
-type TransactionBundle struct {
-	TxMessage *TxMessage
-	Origin    string
+// // TransactionBundle struct
+// type TransactionBundle struct {
+// 	TxMessage *TxMessage
+// 	Origin    string
+// }
+
+// ChainMessage struct
+type ChainMessage struct {
+	Tx     *Transaction
+	Block  *Block
+	Origin string
 }
 
-// BlockBundle struct
-type BlockBundle struct {
-	BlockMessage *BlockMessage
-	Origin       string
+// IsTx check
+func (msg *ChainMessage) IsTx() bool {
+	return msg.Tx != nil && msg.Block == nil
 }
+
+// IsTx check
+func (msg *ChainMessage) IsBlock() bool {
+	return msg.Block == nil && msg.Block != nil
+}
+
+// // BlockBundle struct
+// type BlockBundle struct {
+// 	BlockMessage *BlockMessage
+// 	Origin       string
+// }
 
 // BlockMessage struct
 type BlockMessage struct {

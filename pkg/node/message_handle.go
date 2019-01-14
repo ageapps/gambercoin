@@ -138,8 +138,16 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 }
 
 func (node *Node) handleTxMessage(msg *blockchain.TxMessage, address string) {
-	node.chainHandler.BundleChannel <- &blockchain.TransactionBundle{TxMessage: msg, Origin: address}
+	node.blockchain.ReceiveChannel <- blockchain.ChainMessage{Tx: &msg.Tx, Origin: address}
+	msg.HopLimit--
+	if msg.HopLimit > 0 {
+		node.publishTX(msg.Tx, msg.HopLimit, address)
+	}
 }
 func (node *Node) handleBlockMessage(msg *blockchain.BlockMessage, address string) {
-	node.chainHandler.BlockChannel <- &blockchain.BlockBundle{BlockMessage: msg, Origin: address}
+	node.blockchain.ReceiveChannel <- blockchain.ChainMessage{Block: &msg.Block, Origin: address}
+	msg.HopLimit--
+	if msg.HopLimit > 0 {
+		node.publishBlock(msg.Block, msg.HopLimit, address)
+	}
 }

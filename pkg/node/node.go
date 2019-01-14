@@ -23,12 +23,15 @@ const (
 	MAX_RETRYS              = 5
 	DEFAULT_ROUTE_TIMEOUT   = 3
 	DEFAULT_MONGUER_TIMEOUT = 1
+	DEFAULT_BLOCK_HOPS      = 20
+	DEFAULT_TX_HOPS         = 10
 )
 
 // Node struct
 type Node struct {
 	Name            string
 	Address         utils.PeerAddress
+	MinerHash       utils.HashValue
 	peerConection   *connection.ConnectionHandler
 	peers           *utils.PeerAddresses
 	rumorStack      stack.MessageStack
@@ -40,8 +43,8 @@ type Node struct {
 	mux             sync.Mutex
 	usedPeers       map[string]bool
 	running         bool
-	chainHandler    *blockchain.ChainHandler
 	receivedRoute   bool
+	blockchain      *blockchain.BlockChain
 }
 
 // NewNode return new instance
@@ -52,10 +55,11 @@ func NewNode(addressStr, name string) (*Node, error) {
 	}
 
 	logger.Logw("Listening to peers in address <%v>", addressStr)
-
+	minerHash := utils.CreateMinerHash()
 	return &Node{
 		Name:            name,
 		Address:         address,
+		MinerHash:       minerHash,
 		peers:           utils.EmptyAdresses(),
 		rumorStack:      stack.NewMessageStack(),
 		privateStack:    stack.NewMessageStack(),
@@ -66,6 +70,7 @@ func NewNode(addressStr, name string) (*Node, error) {
 		usedPeers:       make(map[string]bool),
 		running:         false,
 		receivedRoute:   false,
+		blockchain:      blockchain.NewBlockChain(name, minerHash),
 	}, nil
 }
 
@@ -81,8 +86,28 @@ func (node *Node) Start(clientChan <-chan client.Message) error {
 	go node.listenToClientChannel(clientChan)
 	go node.startRouteTimer(DEFAULT_ROUTE_TIMEOUT)
 	go node.startEntropyTimer(ENTROPY_TIMER_PERIOD)
-	// TODO start blockchain process
 	return node.listenToPeers()
+}
+
+func (node *Node) startBlockchainProcess() {
+	messageQueue := node.blockchain.Start(func() {
+		logger.Logi("Blockchain finished gracefully")
+	})
+	go func() {
+		for msg := range messageQueue {
+			packet := data.GossipPacket{}
+			if msg.IsTx() {
+				txMsg := blockchain.NewTxMessage(*msg.Tx, uint32(DEFAULT_TX_HOPS))
+				packet.TxMessage = txMsg
+			} else if msg.IsBlock() {
+				blMsg := blockchain.NewBlockMessage(*msg.Block, uint32(DEFAULT_BLOCK_HOPS))
+				packet.BlockMessage = blMsg
+			}
+			if packet.TxMessage != nil || packet.BlockMessage != nil {
+				node.peerConection.BroadcastPacket(node.peers, &packet, msg.Origin)
+			}
+		}
+	}()
 }
 
 // Stop node process
@@ -130,6 +155,11 @@ func (node *Node) handleClientMessage(msg *client.Message) {
 	logger.Logi("Message received from client \nprivate: %v", msg.IsDirectMessage())
 
 	switch {
+	case msg.IsTx():
+		logger.Logi("Message received is TRANSACTION")
+		tx := msg.Transaction.GetTransaction()
+		node.blockchain.ReceiveChannel <- blockchain.ChainMessage{Tx: &tx, Origin: node.Name}
+
 	case msg.Broadcast:
 		logger.LogClient((*msg).Text)
 

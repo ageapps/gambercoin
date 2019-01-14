@@ -4,9 +4,30 @@
 
 gambercoin is a project fully written in `Go` that aims to create a full enviroment to emulate a distributed network using the Gossip Protocol.
 
+It is an extension if the iplementation of the Peerster including a simple monetary system based in UTXOs.
+
 gambercoin is part of the practical projects from the subject [Decentralized Systems Engineering](http://edu.epfl.ch/coursebook/en/decentralized-systems-engineering-CS-438)
 
 ![app](./art/app.gif)
+
+
+## Use gambercoin
+
+The project is ´go-gettable´ like other Go projects.
+
+Other commands
+
+```
+# launch server on port 8080
+make serve
+
+# launch node on port 8080 in headless mode
+make run1
+
+# send test message to node on headless mode
+make send1
+```
+
 
 ## Gossiping in gambercoin
 
@@ -42,12 +63,4 @@ Below you can find the high-level design:
 
 + Keep connected list updated with a failure detector.
 + Optimized routing
-+ Sync of the full blockchain for new nodes.
-+ 
-
-## TODOs
-
-+ Create logger for each node
-+ Create separate entropyTimer handler
-+ Document CLI/Web interface
-+ More documentation
++ Use of UTXOs to create a simple monetary system

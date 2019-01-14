@@ -57,7 +57,7 @@ func (block *Block) Hash() (out [32]byte) {
 	h.Write([]byte(block.timestamp))
 	binary.Write(h, binary.LittleEndian, uint32(len(block.Transactions)))
 	for _, t := range block.Transactions {
-		th := t.Hash()
+		th := t.Name
 		h.Write(th[:])
 	}
 	copy(out[:], h.Sum(nil))

@@ -26,6 +26,8 @@ var routes = Routes{
 	Route{"Private Message", "POST", "/private", PostPrivateMessage},
 	Route{"Start", "POST", "/start", Start},
 	Route{"Delete", "POST", "/delete", Delete},
+	Route{"Delete", "GET", "/balance", GetBalance},
+	Route{"Delete", "POST", "/transaction", PostTransaction},
 	// Route{"Upload", "POST", "/upload", Upload},
 	// Route{"Upload", "POST", "/request", PostRequest},
 	// Route{"Upload", "POST", "/search", PostSearch},

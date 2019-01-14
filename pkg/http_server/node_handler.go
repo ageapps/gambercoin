@@ -21,7 +21,7 @@ func NewNodePool() *NodePool {
 	}
 }
 
-// GossiperPool struct cointaining nodes
+// NodePool struct cointaining nodes
 type NodePool struct {
 	nodes           map[string]*node.Node
 	messageChannels map[string]*chan client.Message
@@ -38,15 +38,15 @@ func (pool *NodePool) addMsgChannel(name string, msgChan *chan client.Message) {
 	pool.messageChannels[name] = msgChan
 	pool.mux.Unlock()
 }
-func (pool *NodePool) deleteGossiper(name string) {
+func (pool *NodePool) deleteNode(name string) {
 	pool.mux.Lock()
 	delete(pool.nodes, name)
 	pool.mux.Unlock()
 }
-func (pool *NodePool) getGossiper(name string) (foundGossiper *node.Node, found bool) {
+func (pool *NodePool) getNode(name string) (foundNode *node.Node, found bool) {
 	pool.mux.Lock()
 	defer pool.mux.Unlock()
-	foundGossiper, found = pool.nodes[name]
+	foundNode, found = pool.nodes[name]
 	return
 }
 func (pool *NodePool) getMsgChannel(name string) (foundChannel chan client.Message, found bool) {
@@ -55,7 +55,7 @@ func (pool *NodePool) getMsgChannel(name string) (foundChannel chan client.Messa
 	foundChannelPtr, found := pool.messageChannels[name]
 	return *foundChannelPtr, found
 }
-func (pool *NodePool) findGossiper(name, address string) (*node.Node, bool) {
+func (pool *NodePool) findNode(name, address string) (*node.Node, bool) {
 	pool.mux.Lock()
 	defer pool.mux.Unlock()
 	for _, node := range pool.nodes {
@@ -68,7 +68,7 @@ func (pool *NodePool) findGossiper(name, address string) (*node.Node, bool) {
 }
 
 var (
-	gossiperPool = NewNodePool()
+	nodePool = NewNodePool()
 	// DebugLevel default level
 	DebugLevel = logger.Info
 )
@@ -83,7 +83,7 @@ func startNode(name, address string, peers *utils.PeerAddresses) string {
 	shortName := strings.Split(name, "-")[0]
 
 	logger.CreateLogger(shortName, strings.Split(address, ":")[1], DebugLevel)
-	targetGossiper, found := gossiperPool.findGossiper(name, address)
+	targetNode, found := nodePool.findNode(name, address)
 
 	if !found {
 		newNode, err := node.NewNode(address, name)
@@ -91,103 +91,110 @@ func startNode(name, address string, peers *utils.PeerAddresses) string {
 			logger.Logw("Error creating new Node, %v ", err)
 			return ""
 		}
-		targetGossiper = newNode
+		targetNode = newNode
 		if peers != nil && len(peers.GetAdresses()) > 0 {
-			go targetGossiper.AddPeers(peers)
+			go targetNode.AddPeers(peers)
 		}
 		messageChannel := make(chan client.Message)
 		go func(channel chan client.Message) {
-			if err := targetGossiper.Start(channel); err != nil {
+			if err := targetNode.Start(channel); err != nil {
 				log.Fatal(err)
 			}
 		}(messageChannel)
 
 		// go func() {
-		// 	targetGossiper.StartBlockChain()
+		// 	targetNode.StartBlockChain()
 		// }()
-		gossiperPool.addNode(targetGossiper)
-		gossiperPool.addMsgChannel(targetGossiper.Name, &messageChannel)
+		nodePool.addNode(targetNode)
+		nodePool.addMsgChannel(targetNode.Name, &messageChannel)
 	}
-	return targetGossiper.Name
+	return targetNode.Name
 }
 
-func getGossiperRoutes(name string) *router.RoutingTable {
-	targetGossiper, found := gossiperPool.getGossiper(name)
+func getNodeRoutes(name string) *router.RoutingTable {
+	targetNode, found := nodePool.getNode(name)
 	if !found {
 		return nil
 	}
 
-	return targetGossiper.GetRoutes()
+	return targetNode.GetRoutes()
 }
 
-func getGossiperMessages(name string) *[]stack.GenericMessage {
-	targetGossiper, found := gossiperPool.getGossiper(name)
+func getNodeMessages(name string) *[]stack.GenericMessage {
+	targetNode, found := nodePool.getNode(name)
 	if !found {
 		return nil
 	}
-	return targetGossiper.GetLatestMessages()
+	return targetNode.GetLatestMessages()
 }
 
-func getGossiperPrivateMessages(name string) *map[string][]stack.GenericMessage {
-	targetGossiper, found := gossiperPool.getGossiper(name)
+func getNodePrivateMessages(name string) *map[string][]stack.GenericMessage {
+	targetNode, found := nodePool.getNode(name)
 	if !found {
 		return nil
 	}
-	return targetGossiper.GetPrivateMessages()
+	return targetNode.GetPrivateMessages()
 }
 
-func getGossiperPeers(name string) *[]string {
-	targetGossiper, found := gossiperPool.getGossiper(name)
+func getNodePeers(name string) *[]string {
+	targetNode, found := nodePool.getNode(name)
 	if !found {
 		return nil
 	}
-	return targetGossiper.GetPeerArray()
+	return targetNode.GetPeerArray()
+}
+func geetHashBalance(name string, hash utils.HashValue) int {
+	targetNode, found := nodePool.getNode(name)
+	if !found {
+		return -1000000
+	}
+	return targetNode.GetBalanceOfHash(hash)
 }
 
 func getStatusResponse(name string) *StatusResponse {
-	targetGossiper, found := gossiperPool.getGossiper(name)
+	targetNode, found := nodePool.getNode(name)
 	if !found {
 		return nil
 	}
 	return &StatusResponse{
-		Name:    targetGossiper.Name,
-		Address: targetGossiper.Address.String(),
+		Name:    targetNode.Name,
+		Address: targetNode.Address.String(),
 	}
 }
 
-func deleteGossiper(name string) {
-	targetGossiper, found := gossiperPool.getGossiper(name)
+func deleteNode(name string) {
+	targetNode, found := nodePool.getNode(name)
 	if !found {
 		return
 	}
-	go targetGossiper.Stop()
-	gossiperPool.deleteGossiper(targetGossiper.Name)
+	go targetNode.Stop()
+	nodePool.deleteNode(targetNode.Name)
 }
 
 func addPeer(name, peer string) bool {
-	targetGossiper, found := gossiperPool.getGossiper(name)
+	targetNode, found := nodePool.getNode(name)
 	if !found {
 		return false
 	}
-	targetGossiper.AddAndNotifyPeer(peer)
+	targetNode.AddAndNotifyPeer(peer)
 	return true
 }
 
 func sendMessage(name, msg string) bool {
-	targetGossiper, found := gossiperPool.getGossiper(name)
+	targetNode, found := nodePool.getNode(name)
 	if !found {
 		return false
 	}
 	newMsg := &client.Message{
 		Text: msg,
 	}
-	channel, _ := gossiperPool.getMsgChannel(targetGossiper.Name)
+	channel, _ := nodePool.getMsgChannel(targetNode.Name)
 	channel <- *newMsg
 	return true
 }
 
 func sendPrivateMessage(name, destination, msg string) bool {
-	targetGossiper, found := gossiperPool.getGossiper(name)
+	targetNode, found := nodePool.getNode(name)
 	if !found {
 		return false
 	}
@@ -195,7 +202,20 @@ func sendPrivateMessage(name, destination, msg string) bool {
 		Text:        msg,
 		Destination: destination,
 	}
-	channel, _ := gossiperPool.getMsgChannel(targetGossiper.Name)
+	channel, _ := nodePool.getMsgChannel(targetNode.Name)
+	channel <- *newMsg
+	return true
+}
+
+func sendTransaction(name, in, out string, amount int) bool {
+	targetNode, found := nodePool.getNode(name)
+	if !found {
+		return false
+	}
+	newMsg := &client.Message{
+		Transaction: &client.ClientTx{in, out, amount},
+	}
+	channel, _ := nodePool.getMsgChannel(targetNode.Name)
 	channel <- *newMsg
 	return true
 }

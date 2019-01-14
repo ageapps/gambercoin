@@ -1,6 +1,7 @@
 package node
 
 import (
+	"github.com/ageapps/gambercoin/pkg/blockchain"
 	"github.com/ageapps/gambercoin/pkg/data"
 	"github.com/ageapps/gambercoin/pkg/logger"
 	"github.com/ageapps/gambercoin/pkg/monguer"
@@ -44,4 +45,16 @@ func (node *Node) sendPrivateMessage(msg *data.PrivateMessage) {
 	} else {
 		logger.Logw("INVALID PRIVATE Dest:%v", msg.Destination)
 	}
+}
+
+func (node *Node) publishTX(tx blockchain.Transaction, hops uint32, origin string) {
+	msg := blockchain.NewTxMessage(tx, hops)
+	packet := &data.GossipPacket{TxMessage: msg}
+	node.peerConection.BroadcastPacket(node.peers, packet, origin)
+}
+
+func (node *Node) publishBlock(bl blockchain.Block, hops uint32, origin string) {
+	msg := blockchain.NewBlockMessage(bl, hops)
+	packet := &data.GossipPacket{BlockMessage: msg}
+	node.peerConection.BroadcastPacket(node.peers, packet, origin)
 }

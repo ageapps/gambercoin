@@ -105,3 +105,10 @@ func (node *Node) SetReceivedRoute(received bool) {
 	defer node.mux.Unlock()
 	node.receivedRoute = received
 }
+
+// GetBalanceOfHash funct
+func (node *Node) GetBalanceOfHash(hash utils.HashValue) int {
+	node.mux.Lock()
+	defer node.mux.Unlock()
+	return node.blockchain.GetBalanceOfHash(hash)
+}

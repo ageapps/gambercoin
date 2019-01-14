@@ -28,7 +28,7 @@ func GetMessages(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error: no peer requested for messages"))
 		return
 	}
-	send(&w, getGossiperMessages(name))
+	send(&w, getNodeMessages(name))
 }
 
 // GetPrivateMessages func
@@ -38,7 +38,7 @@ func GetPrivateMessages(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error: no peer requested for private messages"))
 		return
 	}
-	send(&w, getGossiperPrivateMessages(name))
+	send(&w, getNodePrivateMessages(name))
 }
 
 // GetRoutes func
@@ -48,7 +48,7 @@ func GetRoutes(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error: no peer requested for routes"))
 		return
 	}
-	send(&w, getGossiperRoutes(name))
+	send(&w, getNodeRoutes(name))
 }
 
 // GetFiles func
@@ -58,7 +58,7 @@ func GetRoutes(w http.ResponseWriter, r *http.Request) {
 // 		sendError(&w, errors.New("Error: no peer requested for files"))
 // 		return
 // 	}
-// 	send(&w, getGossiperFilesStatus(name))
+// 	send(&w, getNodeFilesStatus(name))
 // }
 
 // GetNodes func
@@ -68,7 +68,7 @@ func GetNodes(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error: no peer requested for nodes"))
 		return
 	}
-	send(&w, getGossiperPeers(name))
+	send(&w, getNodePeers(name))
 }
 
 // PostMessage func
@@ -84,7 +84,7 @@ func PostMessage(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error while sending new message"))
 		return
 	}
-	send(&w, getGossiperMessages(name))
+	send(&w, getNodeMessages(name))
 }
 
 // PostPrivateMessage func
@@ -105,7 +105,7 @@ func PostPrivateMessage(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error while sending new message"))
 		return
 	}
-	send(&w, getGossiperMessages(name))
+	send(&w, getNodeMessages(name))
 }
 
 // PostSearch func
@@ -147,7 +147,7 @@ func PostPrivateMessage(w http.ResponseWriter, r *http.Request) {
 // 		sendError(&w, errors.New("Error while sending new request"))
 // 		return
 // 	}
-// 	send(&w, getGossiperFilesStatus(name))
+// 	send(&w, getNodeFilesStatus(name))
 // }
 
 // PostNode func
@@ -163,7 +163,32 @@ func PostNode(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error while adding new peer"))
 		return
 	}
-	send(&w, getGossiperPeers(name))
+	send(&w, getNodePeers(name))
+}
+
+func PostTransaction(w http.ResponseWriter, r *http.Request) {
+	params := *readBody(&w, r)
+	name, ok := params["name"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no name requested"))
+		return
+	}
+	in, ok := params["in"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no in requested"))
+		return
+	}
+	out, ok := params["out"].(string)
+	if !ok {
+		sendError(&w, errors.New("Error: no out requested"))
+		return
+	}
+	amount, ok := params["amount"].(int)
+	if !ok {
+		sendError(&w, errors.New("Error: no amount requested"))
+		return
+	}
+	send(&w, sendTransaction(name, in, out, amount))
 }
 
 // GetID func
@@ -177,6 +202,26 @@ func GetID(w http.ResponseWriter, r *http.Request) {
 	send(&w, getStatusResponse(name))
 }
 
+// GetID func
+func GetBalance(w http.ResponseWriter, r *http.Request) {
+	name, ok := getNameFromRequest(r)
+	if !ok {
+		sendError(&w, errors.New("Error: no peer requested"))
+		return
+	}
+	hashStr, ok := getHashFromRequest(r)
+	if !ok {
+		sendError(&w, errors.New("Error: no hash requested"))
+		return
+	}
+	hash, err := utils.GetHash(hashStr)
+	if err != nil {
+		sendError(&w, errors.New("Error: bad hash conversion"))
+		return
+	}
+	send(&w, geetHashBalance(name, hash))
+}
+
 // Delete node
 func Delete(w http.ResponseWriter, r *http.Request) {
 	params := *readBody(&w, r)
@@ -185,69 +230,9 @@ func Delete(w http.ResponseWriter, r *http.Request) {
 		sendError(&w, errors.New("Error: no peer requested"))
 		return
 	}
-	deleteGossiper(name)
+	deleteNode(name)
 	sendOk(&w)
 }
-
-// // Upload file
-// func Upload(w http.ResponseWriter, r *http.Request) {
-// 	name := r.FormValue("name")
-// 	if name == "" {
-// 		sendError(&w, errors.New("Error: no peer requested"))
-// 		return
-// 	}
-// 	if path := downloadFile(w, r); path != "" {
-// 		send(&w, indexFileInGossiper(name, path))
-// 	}
-// }
-
-// func downloadFile(w http.ResponseWriter, r *http.Request) string {
-// 	r.Body = http.MaxBytesReader(w, r.Body, MAX_UPLOAD_SIZE)
-// 	if err := r.ParseMultipartForm(MAX_UPLOAD_SIZE); err != nil {
-// 		sendError(&w, fmt.Errorf("file to big, %v", err))
-// 		return ""
-// 	}
-
-// 	file, handler, err := r.FormFile("file")
-// 	if err != nil {
-// 		sendError(&w, fmt.Errorf("invalid file, %v", err))
-// 		return ""
-// 	}
-// 	defer file.Close()
-// 	fileBytes, err := ioutil.ReadAll(file)
-// 	if err != nil {
-// 		sendError(&w, fmt.Errorf("invalid file, %v", err))
-// 		return ""
-// 	}
-// 	filetype := http.DetectContentType(fileBytes)
-// 	// if filetype != "image/jpeg" && filetype != "image/jpg" &&
-// 	// 	filetype != "image/gif" && filetype != "image/png" &&
-// 	// 	filetype != "application/pdf" {
-// 	// 	sendError(&w, fmt.Errorf("invalid file type, %v", err))
-// 	// 	return ""
-// 	// }
-// 	fileName := strings.Split(handler.Filename, ".")[0]
-// 	fileEndings, err := mime.ExtensionsByType(filetype)
-// 	if err != nil {
-// 		sendError(&w, fmt.Errorf("can't read file type, %v", err))
-// 		return ""
-// 	}
-// 	newPath := filepath.Join(uploadPath, fileName+fileEndings[0])
-// 	fmt.Printf("FileType: %s, File: %s\n", filetype, newPath)
-// 	logger.Logf("Saving file in path %v", newPath)
-
-// 	newFile, err := os.Create(newPath)
-// 	if err != nil {
-// 		sendError(&w, fmt.Errorf("can't write file type, %v", err))
-// 		return ""
-// 	}
-// 	defer newFile.Close()
-// 	if _, err := newFile.Write(fileBytes); err != nil {
-// 		sendError(&w, fmt.Errorf("can't write file type, %v", err))
-// 		return ""
-// 	}
-// 	return fileName + fileEndings[0]
-// }
 
 // Start node
 func Start(w http.ResponseWriter, r *http.Request) {
@@ -282,12 +267,12 @@ func Start(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	gossiperName := startNode(name, gossipAddr.String(), &peers)
-	if gossiperName == "" {
+	nodeName := startNode(name, gossipAddr.String(), &peers)
+	if nodeName == "" {
 		sendError(&w, errors.New("Error starting node"))
 		return
 	}
-	send(&w, getStatusResponse(gossiperName))
+	send(&w, getStatusResponse(nodeName))
 }
 
 func send(w *http.ResponseWriter, v interface{}) {
@@ -331,6 +316,13 @@ func readBody(w *http.ResponseWriter, r *http.Request) *map[string]interface{} {
 
 func getNameFromRequest(r *http.Request) (string, bool) {
 	name, ok := r.URL.Query()["name"]
+	if !ok || len(name[0]) < 1 {
+		return "", false
+	}
+	return name[0], true
+}
+func getHashFromRequest(r *http.Request) (string, bool) {
+	name, ok := r.URL.Query()["hash"]
 	if !ok || len(name[0]) < 1 {
 		return "", false
 	}

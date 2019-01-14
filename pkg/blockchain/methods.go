@@ -9,117 +9,102 @@ import (
 )
 
 func (bc *BlockChain) getBlockPool() map[string]*Block {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
+	bc.Lock()
+	defer bc.Unlock()
 	return bc.blockPool
 }
 
 func (bc *BlockChain) setPrevHash(newPrev [32]byte) {
-	bc.mux.Lock()
+	bc.Lock()
 	bc.prevHash = newPrev
-	bc.mux.Unlock()
+	bc.Unlock()
 }
 
 func (bc *BlockChain) setMining(yes bool) {
-	bc.mux.Lock()
+	bc.Lock()
 	// if !yes {
 	// 	logger.Logf("STOPPED MINIG")
 	// }
 	bc.minig = yes
-	bc.mux.Unlock()
+	bc.Unlock()
 
 }
 func (bc *BlockChain) isMining() bool {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
+	bc.Lock()
+	defer bc.Unlock()
 	return bc.minig
 }
 
 func (bc *BlockChain) resetTransactionPool() {
-	bc.mux.Lock()
+	bc.Lock()
 	bc.tansactionPool = make(map[string]*Transaction)
-	bc.mux.Unlock()
+	bc.Unlock()
 }
 
 func (bc *BlockChain) setCurrentNonce(nonce [32]byte) {
-	bc.mux.Lock()
+	bc.Lock()
 	bc.currentBlock.Nonce = nonce
-	bc.mux.Unlock()
+	bc.Unlock()
 }
 func (bc *BlockChain) setCurrentBlock(block Block) {
-	bc.mux.Lock()
+	bc.Lock()
 	bc.currentBlock = block
-	bc.mux.Unlock()
+	bc.Unlock()
 }
 func (bc *BlockChain) restoreCanonicalChain(newChain Chain) {
-	bc.mux.Lock()
-	bc.CanonicalChain = newChain
-	bc.mux.Unlock()
+	bc.Lock()
+	bc.canonicalChain = newChain
+	bc.Unlock()
 }
 
 func (bc *BlockChain) getCurrentBlock() Block {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
+	bc.Lock()
+	defer bc.Unlock()
 	return bc.currentBlock
 }
 func (bc *BlockChain) getCanonicalChain() Chain {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
-	return bc.CanonicalChain
+	bc.Lock()
+	defer bc.Unlock()
+	return bc.canonicalChain
 }
-func (bc *BlockChain) getPrevHash() [32]byte {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
+func (bc *BlockChain) getPrevHash() utils.HashValue {
+	bc.Lock()
+	defer bc.Unlock()
 	return bc.prevHash
 }
 
 func (bc *BlockChain) getTransactionPool() map[string]*Transaction {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
+	bc.Lock()
+	defer bc.Unlock()
 	return bc.tansactionPool
 }
 
 func (bc *BlockChain) getSideChains() []*Chain {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
-	return bc.SideChains
+	bc.Lock()
+	defer bc.Unlock()
+	return bc.sideChains
 }
 
 func (bc *BlockChain) resetSideChains() {
-	bc.mux.Lock()
-	bc.SideChains = []*Chain{}
-	bc.mux.Unlock()
+	bc.Lock()
+	bc.sideChains = []*Chain{}
+	bc.Unlock()
 }
 
 func (bc *BlockChain) addSideChain(chain *Chain) {
-	bc.mux.Lock()
-	bc.SideChains = append(bc.SideChains, chain)
-	bc.mux.Unlock()
-}
-
-func (bc *BlockChain) addToTransactionPool(tx *Transaction) utils.HashValue {
-	bc.mux.Lock()
-	bc.tansactionPool[tx.String()] = tx
-	bc.mux.Unlock()
-	return tx.Name
-}
-
-func (bc *BlockChain) isBlockInCanonicalChain(newBlock *Block) bool {
-	for _, block := range bc.getCanonicalChain().Blocks {
-		if block.String() == newBlock.String() {
-			return true
-		}
-	}
-	return false
+	bc.Lock()
+	bc.sideChains = append(bc.sideChains, chain)
+	bc.Unlock()
 }
 
 func (bc *BlockChain) deleteSideChain(index int) {
-	bc.SideChains = append(bc.SideChains[:index], bc.SideChains[index+1:]...)
+	bc.sideChains = append(bc.sideChains[:index], bc.sideChains[index+1:]...)
 }
 
 func (bc *BlockChain) isTransactionInCanonicalChain(newTransaction *Transaction) bool {
 	for _, block := range bc.getCanonicalChain().Blocks {
-		for _, tx := range block.Transactions {
+		for _, transaction := range block.Transactions {
+			tx := transaction // because of ponter issues
 			if tx.String() == newTransaction.String() {
 				return true
 			}
@@ -148,51 +133,50 @@ func (bc *BlockChain) logChain() {
 	fmt.Println("CHAIN" + str)
 }
 
-func (bc *BlockChain) getMinedChannel() chan *Block {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
-	return bc.MinedBlocks
+func (bc *BlockChain) isActive() bool {
+	bc.Lock()
+	defer bc.Unlock()
+	return bc.active
 }
-func (bc *BlockChain) getBlockChannel() chan *Block {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
-	return bc.BlockChannel
-}
-func (bc *BlockChain) getTxChannel() chan *Transaction {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
-	return bc.TxChannel
-}
-func (bc *BlockChain) isStopped() bool {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
-	return bc.stopped
-}
-func (bc *BlockChain) setStopped(yes bool) {
-	bc.mux.Lock()
-	bc.stopped = yes
-	bc.mux.Unlock()
+func (bc *BlockChain) setActive(yes bool) {
+	bc.Lock()
+	bc.active = yes
+	bc.Unlock()
 }
 
-func (bc *BlockChain) sendToBlockChannel(bl *Block) {
-	if !bc.isStopped() {
-		bc.getBlockChannel() <- (bl)
+func (bc *BlockChain) sendBlock(bl *Block) {
+	if bc.isActive() {
+		bc.sendChannel <- ChainMessage{
+			Block:  bl,
+			Origin: bc.nodeAddress,
+		}
 	}
 }
-func (bc *BlockChain) sendToMinedChannel(bl *Block) {
-	if !bc.isStopped() {
-		bc.getMinedChannel() <- bl
+func (bc *BlockChain) sendBlockToProcess(bl *Block) {
+	if bc.isActive() {
+		bc.ReceiveChannel <- ChainMessage{
+			Block:  bl,
+			Origin: bc.nodeAddress,
+		}
+	}
+}
+func (bc *BlockChain) sendTransaction(tx *Transaction) {
+	if bc.isActive() {
+		bc.sendChannel <- ChainMessage{
+			Tx:     tx,
+			Origin: bc.nodeAddress,
+		}
 	}
 }
 func (bc *BlockChain) getBlockTime() uint64 {
-	bc.mux.Lock()
-	defer bc.mux.Unlock()
-	return bc.BlockTime
+	bc.Lock()
+	defer bc.Unlock()
+	return bc.blockTime
 }
 func (bc *BlockChain) setBlockTime(t uint64) {
-	bc.mux.Lock()
-	bc.BlockTime = t
-	bc.mux.Unlock()
+	bc.Lock()
+	bc.blockTime = t
+	bc.Unlock()
 }
 
 func getTimestamp() int64 {

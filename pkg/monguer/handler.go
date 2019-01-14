@@ -2,7 +2,6 @@ package monguer
 
 import (
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -16,55 +15,48 @@ var usedPeers = make(map[string]bool)
 // MongerHandler is a handler that will be in
 // charge of the monguering process whenever the
 // node gets a message from a client:
-// name                   name of the Handler
-// originalMessage        original message that was being monguered
-// currentMessage         message currently being monguered
-// currentPeer            client currently being monguered
-// active                 monguer handler active state
-// currentlySynchronicing bool
-// connection             *ConnectionHandler
-// peers                  *utils.PeerAddresses
-// mux                    sync.Mutex
-// timer                  *time.Timer
-// quitChannel            chan bool
-// resetChannel           chan bool
-//
 type MongerHandler struct {
-	Name          string
+	Name          string              // name of the Handler
 	SendChannel   chan<- MongerBundle // write-only channel to send messages to node
 	SignalChannel chan signal.Signal  // channel to receive messages from node
 
-	originPeer             string
-	currentMessage         *RumorMessage
-	currentPeer            string
-	active                 bool
-	currentlySynchronicing bool
-	peers                  *utils.PeerAddresses
-	timer                  *time.Timer
-	quitChannel            chan bool
-	resetChannel           chan bool
-	usedPeers              *map[string]bool
+	originPeer     string        // peer that sent rumor message, this avoids monguering with him
+	currentMessage *RumorMessage //  message currently being monguered
+	currentPeer    string        //   client currently being monguered
+	active         bool          //   monguer handler active state
+	synchronizing  bool          //   monguer handler synchronizing state
+	maxRetrys      int           //   maximal retrys to monguer with a peer
+	retrys         int           //   retrys done to monguer with a peer
+	timeout        int           //   timeout between messages
+	peers          *utils.PeerAddresses
+	timer          *time.Timer
+	quitChannel    chan bool
+	resetChannel   chan bool
+	usedPeers      *map[string]bool
 	sync.Mutex
 }
 
 // NewMongerHandler function
-func NewMongerHandler(originPeer, Name string, msg *RumorMessage, connectPeers *utils.PeerAddresses) *MongerHandler {
+func NewMongerHandler(originPeer, Name string, msg *RumorMessage, connectPeers *utils.PeerAddresses, maxRetrys, timeout int) *MongerHandler {
 	used := make(map[string]bool)
 	if originPeer != "" {
 		used[originPeer] = true
 	}
 	return &MongerHandler{
-		originPeer:             originPeer,
-		Name:                   Name,
-		currentMessage:         msg,
-		currentPeer:            "",
-		active:                 false,
-		currentlySynchronicing: false,
-		peers:                  connectPeers,
-		timer:                  &time.Timer{},
-		quitChannel:            make(chan bool),
-		resetChannel:           make(chan bool),
-		usedPeers:              &used,
+		originPeer:     originPeer,
+		Name:           Name,
+		currentMessage: msg,
+		currentPeer:    "",
+		active:         false,
+		synchronizing:  false,
+		maxRetrys:      maxRetrys,
+		retrys:         0,
+		timeout:        timeout,
+		peers:          connectPeers,
+		timer:          &time.Timer{},
+		quitChannel:    make(chan bool),
+		resetChannel:   make(chan bool),
+		usedPeers:      &used,
 	}
 }
 
@@ -95,7 +87,7 @@ func (handler *MongerHandler) Start(onStopHandler func()) <-chan MongerBundle {
 				// Flip coin
 				if !handler.isSynking() {
 					logger.Logv("TIMEOUT, FLIPPING COIN")
-					if !keepRumorering() {
+					if !handler.keepMonguering() {
 						handler.stop()
 					} else {
 						handler.resetUsedPeers()
@@ -119,7 +111,7 @@ func (handler *MongerHandler) Start(onStopHandler func()) <-chan MongerBundle {
 
 func (handler *MongerHandler) newTimer() *time.Timer {
 	// logger.Logf("Launching new timer")
-	return time.NewTimer(1 * time.Second)
+	return time.NewTimer(time.Duration(handler.timeout) * time.Second)
 }
 
 func (handler *MongerHandler) resetUsedPeers() {
@@ -219,7 +211,7 @@ func (handler *MongerHandler) isActive() bool {
 func (handler *MongerHandler) isSynking() bool {
 	handler.Lock()
 	defer handler.Unlock()
-	return handler.currentlySynchronicing
+	return handler.synchronizing
 }
 
 // SetSynking state
@@ -229,7 +221,7 @@ func (handler *MongerHandler) setSynking(value bool) {
 	if handler.timer.C != nil {
 		handler.timer.Stop()
 	}
-	handler.currentlySynchronicing = value
+	handler.synchronizing = value
 }
 func (handler *MongerHandler) setActive(value bool) {
 	handler.Lock()
@@ -242,8 +234,17 @@ func (handler *MongerHandler) addUsedPeer(peer string) {
 	handler.Unlock()
 }
 
-func keepRumorering() bool {
-	// flipCoin
-	coin := rand.Int() % 2
-	return coin != 0
+func (handler *MongerHandler) keepMonguering() bool {
+	if handler.retrys >= handler.maxRetrys {
+		// Node tryed to many times to contact another peer
+		// consider it as failed peer
+		handler.peers.RemovePeer(handler.currentPeer)
+		logger.Logi("Removed PEER %v", handler.currentPeer)
+		logger.LogPeers(handler.peers.String())
+		// restart the monguer process
+		return false
+	}
+	handler.retrys++
+
+	return utils.FlipCoin()
 }

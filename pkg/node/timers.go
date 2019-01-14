@@ -27,16 +27,48 @@ func (node *Node) startEntropyTimer(etimer int) {
 	}
 }
 
+func newTimer(timer int) *time.Timer {
+	// logger.Logf("Launching new timer")
+	return time.NewTimer(time.Duration(timer) * time.Second)
+}
+
 // startRouteTimer function
 // this timer sends preriodically a route message to a random peer
 func (node *Node) startRouteTimer(rtimer int) {
 	// logger.Log("Starting Route timer")
 	usedPeers := make(map[string]bool)
+	currentPeer := node.sendRandomRouteMessage(usedPeers)
+	retryCunt := 0
+
 	for node.IsRunning() {
-		if newpeer := node.GetPeers().GetRandomPeer(usedPeers); newpeer != nil {
-			logger.Logv("Route Timer - MESSAGE")
-			node.sendRouteRumorMessage(newpeer.String())
+
+		if node.ReceivedRouteAck() {
+			currentPeer = node.sendRandomRouteMessage(usedPeers)
+			retryCunt = 0
+			node.SetReceivedRoute(false)
+		} else if currentPeer != "" {
+			logger.Logi("ROUTE TIMEOUT")
+			retryCunt++
+			node.sendRouteRumorMessage(currentPeer)
+		} else {
+			currentPeer = node.sendRandomRouteMessage(usedPeers)
+		}
+
+		if retryCunt >= MAX_RETRYS {
+			node.GetPeers().RemovePeer(currentPeer)
+			logger.Logi("Removed PEER %v", currentPeer)
+			currentPeer = node.sendRandomRouteMessage(usedPeers)
+			retryCunt = 0
 		}
 		time.Sleep(time.Duration(rtimer) * time.Second)
 	}
+}
+
+func (node *Node) sendRandomRouteMessage(usedPeers map[string]bool) string {
+	if newpeer := node.GetPeers().GetRandomPeer(usedPeers); newpeer != nil {
+		logger.Logv("Route Timer - MESSAGE")
+		node.sendRouteRumorMessage(newpeer.String())
+		return newpeer.String()
+	}
+	return ""
 }

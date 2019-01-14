@@ -19,8 +19,10 @@ import (
 
 const (
 	// ENTROPY_TIMER_PERIOD in seconds
-	ENTROPY_TIMER_PERIOD = 1
-	ROUTE_TIMER_PERIOD   = 3
+	ENTROPY_TIMER_PERIOD    = 3
+	MAX_RETRYS              = 5
+	DEFAULT_ROUTE_TIMEOUT   = 3
+	DEFAULT_MONGUER_TIMEOUT = 1
 )
 
 // Node struct
@@ -39,6 +41,7 @@ type Node struct {
 	usedPeers       map[string]bool
 	running         bool
 	chainHandler    *blockchain.ChainHandler
+	receivedRoute   bool
 }
 
 // NewNode return new instance
@@ -62,6 +65,7 @@ func NewNode(addressStr, name string) (*Node, error) {
 		privateCounter:  utils.NewCounter(uint32(0)),
 		usedPeers:       make(map[string]bool),
 		running:         true,
+		receivedRoute:   false,
 	}, nil
 }
 
@@ -75,7 +79,7 @@ func (node *Node) Start(clientChan <-chan client.Message) error {
 	node.peerConection = connection
 	node.setRunning(true)
 	go node.listenToClientChannel(clientChan)
-	go node.startRouteTimer(ROUTE_TIMER_PERIOD)
+	go node.startRouteTimer(DEFAULT_ROUTE_TIMEOUT)
 	go node.startEntropyTimer(ENTROPY_TIMER_PERIOD)
 	// TODO start blockchain process
 	return node.listenToPeers()
@@ -172,7 +176,7 @@ func (node *Node) handlePeerPacket(packet data.GossipPacket, originAddress strin
 	}
 
 	packetType := packet.GetPacketType()
-	logger.Logw("Received packet %v from <%v>: ", packetType, originAddress)
+	logger.Logw("Received packet %v from <%v> ", packetType, originAddress)
 	switch packetType {
 	case data.PACKET_STATUS:
 		node.handleStatusMessage(packet.Status, originAddress)
@@ -197,7 +201,7 @@ func (node *Node) handlePeerPacket(packet data.GossipPacket, originAddress strin
 func (node *Node) mongerMessage(msg *monguer.RumorMessage, originPeer string) {
 	node.mux.Lock()
 	name := fmt.Sprint(len(node.monguerPocesses), "/", msg.IsRouteRumor())
-	monguerProcess := monguer.NewMongerHandler(originPeer, name, msg, node.peers)
+	monguerProcess := monguer.NewMongerHandler(originPeer, name, msg, node.peers, MAX_RETRYS, DEFAULT_MONGUER_TIMEOUT)
 	node.mux.Unlock()
 
 	node.registerMonguerProcess(monguerProcess)

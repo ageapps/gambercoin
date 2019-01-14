@@ -35,7 +35,7 @@ func (node *Node) handlePeerPrivateMessage(msg *data.PrivateMessage, address str
 }
 
 func (node *Node) handleRumorMessage(msg *monguer.RumorMessage, address string) {
-	newEntry := node.router.AddEntry(msg.Origin, address)
+	newEntry := node.router.AddEntry(msg.Origin, address, false)
 	isRouteRumor := msg.IsRouteRumor()
 	routeNode := "" // setted only for reoute status
 
@@ -80,9 +80,13 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 	logger.Logv("STATUS received Route: %v", isRouteStatus)
 
 	if isRouteStatus {
+		if msg.Route != node.Name {
+			node.router.AddEntry(msg.Route, address, true)
+		}
 		if handler != nil {
 			handler.SignalChannel <- signal.Stop
 		}
+		node.SetReceivedRoute(true)
 		return
 	}
 
@@ -126,7 +130,7 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 		if handler != nil {
 			// Flip coin
 			logger.Logv("IN SYNC, FLIPPING COIN")
-			if !utils.KeepRumorering() {
+			if !utils.FlipCoin() {
 				handler.SignalChannel <- signal.Stop
 			} else {
 				handler.SignalChannel <- signal.Reset

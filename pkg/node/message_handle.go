@@ -81,7 +81,7 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 
 	if isRouteStatus {
 		if msg.Route != node.Name {
-			node.router.AddEntry(msg.Route, address, true)
+			node.router.AddEntry(msg.Route, address, false)
 		}
 		if handler != nil {
 			handler.SignalChannel <- signal.Stop

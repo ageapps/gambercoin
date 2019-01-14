@@ -39,6 +39,7 @@ type Node struct {
 	usedPeers       map[string]bool
 	running         bool
 	chainHandler    *blockchain.ChainHandler
+	receivedRoute   bool
 }
 
 // NewNode return new instance
@@ -61,7 +62,8 @@ func NewNode(addressStr, name string) (*Node, error) {
 		rumorCounter:    utils.NewCounter(uint32(0)),
 		privateCounter:  utils.NewCounter(uint32(0)),
 		usedPeers:       make(map[string]bool),
-		running:         true,
+		running:         false,
+		receivedRoute:   false,
 	}, nil
 }
 

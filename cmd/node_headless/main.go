@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
+
+	"github.com/google/uuid"
 
 	"github.com/ageapps/gambercoin/pkg/client"
 	"github.com/ageapps/gambercoin/pkg/connection"
@@ -46,7 +49,7 @@ func main() {
 	// FLAGS
 	var UIPort = flag.Int("UIPort", 10000, "Define the port to which the client will connect")
 	// var rtimer = flag.Int("rtimer", 3, "Route rumors sending period in seconds, 0 to disable")
-	var name = flag.String("name", "node", "Define the name of the node")
+	var name = flag.String("name", "", "Define the name of the node. By default an uuid is created")
 	flag.Var(peers, "peers", "Define the addreses of the rest of the peers to connect to separeted by a colon")
 	flag.Var(&nodepAddr, "nodepAddr", "Define the ip and port to connect and send gossip messages")
 	flag.Parse()
@@ -54,8 +57,17 @@ func main() {
 	clientAddress := fmt.Sprintf("%v:%v", nodepAddr.IP, *UIPort)
 	clientChannel := make(chan client.Message)
 	// fmt.Println(clientAddress)
+	shortName := *name
+	if *name == "" {
+		uuid, err := uuid.NewRandom()
+		if err != nil {
+			log.Fatal(err)
+		}
+		*name = uuid.String()
+		shortName = strings.Split(*name, "-")[0]
 
-	logger.CreateLogger(*name, nodepAddr.String(), logger.Info)
+	}
+	logger.CreateLogger(shortName, fmt.Sprint(nodepAddr.Port), logger.Info)
 
 	clientConn := listenToUDPClient(clientAddress, clientChannel)
 	defer clientConn.Close()

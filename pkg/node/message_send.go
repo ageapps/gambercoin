@@ -11,7 +11,7 @@ func (node *Node) sendStatusMessage(destination, nodeName string) {
 	if nodeName != "" {
 		message = monguer.NewStatusPacket(nil, nodeName)
 	} else {
-		message = node.rumorStack.getStatusMessage()
+		message = node.rumorStack.GetStatusMessage()
 	}
 	logger.Logv("Sending STATUS route: %v", nodeName != "")
 	packet := &data.GossipPacket{Status: message}
@@ -19,9 +19,10 @@ func (node *Node) sendStatusMessage(destination, nodeName string) {
 }
 
 func (node *Node) sendRumorMessage(destinationAdress, origin string, id uint32) {
-	if message := node.rumorStack.GetRumorMessage(origin, id); message != nil {
-		packet := &data.GossipPacket{Rumor: message}
-		logger.Logv("Sending RUMOR ID:%v", message.ID)
+	if message := *node.rumorStack.GetMessage(origin, id); message != nil {
+		rumor := message.(monguer.RumorMessage)
+		packet := &data.GossipPacket{Rumor: &rumor}
+		logger.Logv("Sending RUMOR ID:%v", message.GetID())
 		node.peerConection.SendPacketToPeer(destinationAdress, packet)
 	} else {
 		logger.Logw("Message to send not found")

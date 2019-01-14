@@ -5,6 +5,7 @@ import (
 
 	"github.com/ageapps/gambercoin/pkg/blockchain"
 	"github.com/ageapps/gambercoin/pkg/signal"
+	"github.com/ageapps/gambercoin/pkg/stack"
 	"github.com/ageapps/gambercoin/pkg/utils"
 
 	"github.com/ageapps/gambercoin/pkg/data"
@@ -47,7 +48,7 @@ func (node *Node) handleRumorMessage(msg *monguer.RumorMessage, address string) 
 
 	node.router.SetEntry(msg.Origin, address)
 
-	if msgStatus == NEW_MESSAGE {
+	if msgStatus == stack.NEW_MESSAGE {
 
 		// If I get own messages that i didn´t
 		// have, set internal rumorCounter
@@ -95,11 +96,11 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 	if handler != nil {
 		handler.SignalChannel <- signal.Sync
 	}
-	if len(msg.Want) < len(*node.rumorStack.getRumorStack()) {
+	if len(msg.Want) < len(*node.rumorStack.GetStack()) {
 		// check messages that i have from other peers that aren´t in the status message
-		missingMessage := node.rumorStack.getFirstMissingMessage(&msg.Want)
+		missingMessage := *node.rumorStack.GetFirstMissingMessage(&msg.Want)
 		if missingMessage != nil {
-			node.sendRumorMessage(address, missingMessage.Origin, missingMessage.ID)
+			node.sendRumorMessage(address, missingMessage.GetOrigin(), missingMessage.GetID())
 		}
 		return
 	}
@@ -115,18 +116,18 @@ func (node *Node) handleStatusMessage(msg *monguer.StatusPacket, address string)
 		messageStatus := node.rumorStack.CompareMessage(status.Identifier, uint32(status.NextID-1))
 
 		switch messageStatus {
-		case NEW_MESSAGE:
+		case stack.NEW_MESSAGE:
 			// logger.Log("Node needs to update")
 			node.sendStatusMessage(address, "")
 			break
-		case IN_SYNC:
+		case stack.IN_SYNC:
 			// logger.Log("Node and Peer have same messages")
-		case OLD_MESSAGE:
+		case stack.OLD_MESSAGE:
 			// logger.Log("Peer needs to update")
 			node.sendRumorMessage(address, status.Identifier, status.NextID)
 			break
 		}
-		inSync = inSync && messageStatus == IN_SYNC
+		inSync = inSync && messageStatus == stack.IN_SYNC
 	}
 	if inSync {
 		logger.LogInSync(address)

@@ -104,7 +104,7 @@ func CreateLogger(name, address string, level DebugLevel) {
 	instance.address = address
 	instance.level = level
 
-	instance.log = log.New(os.Stdout, "["+name+"/"+address+"]: ", log.Ltime)
+	instance.log = log.New(os.Stdout, "["+name+":"+address+"]: ", log.Ltime)
 	Logi("*******  Logger Created  ******\n")
 	Logi("NAME: %v\n", name)
 	Logi("ADRESS: %v\n", address)

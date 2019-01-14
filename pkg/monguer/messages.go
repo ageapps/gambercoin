@@ -2,8 +2,8 @@ package monguer
 
 // MongerBundle to send messages to node
 type MongerBundle struct {
-	Message     *RumorMessage
-	Destination string
+	Message            *RumorMessage
+	DestinationAddress string
 }
 
 // RumorMessage to send
@@ -36,6 +36,16 @@ func NewStatusPacket(want *[]PeerStatus, route string) *StatusPacket {
 // IsRouteRumor check if Rumor is a route message
 func (rumor *RumorMessage) IsRouteRumor() bool {
 	return rumor.Text == ""
+}
+
+// GetID as GenericMessage
+func (rumor RumorMessage) GetID() uint32 {
+	return rumor.ID
+}
+
+// GetOrigin as GenericMessage
+func (rumor RumorMessage) GetOrigin() string {
+	return rumor.Origin
 }
 
 // NewRumorMessage create

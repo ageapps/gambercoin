@@ -3,8 +3,8 @@ package node
 import (
 	"log"
 
-	"github.com/ageapps/gambercoin/pkg/data"
-	"github.com/ageapps/gambercoin/pkg/monguer"
+	"github.com/ageapps/gambercoin/pkg/stack"
+
 	"github.com/ageapps/gambercoin/pkg/router"
 	"github.com/ageapps/gambercoin/pkg/utils"
 )
@@ -26,13 +26,13 @@ func (node *Node) AddAndNotifyPeer(newPeer string) {
 }
 
 // GetLatestMessages returns last rumor messages
-func (node *Node) GetLatestMessages() *[]monguer.RumorMessage {
+func (node *Node) GetLatestMessages() *[]stack.GenericMessage {
 	return node.rumorStack.GetLatestMessages()
 }
 
 // GetPrivateMessages returns last private messages
-func (node *Node) GetPrivateMessages() *map[string][]data.PrivateMessage {
-	return node.privateStack.getPrivateStack()
+func (node *Node) GetPrivateMessages() *map[string][]stack.GenericMessage {
+	return node.privateStack.GetStack()
 }
 
 // GetPeerArray returns an array of address strings

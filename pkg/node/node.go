@@ -13,6 +13,7 @@ import (
 	"github.com/ageapps/gambercoin/pkg/monguer"
 	"github.com/ageapps/gambercoin/pkg/router"
 	"github.com/ageapps/gambercoin/pkg/signal"
+	"github.com/ageapps/gambercoin/pkg/stack"
 	"github.com/ageapps/gambercoin/pkg/utils"
 )
 
@@ -28,8 +29,8 @@ type Node struct {
 	Address         utils.PeerAddress
 	peerConection   *connection.ConnectionHandler
 	peers           *utils.PeerAddresses
-	rumorStack      RumorStack
-	privateStack    PrivateStack
+	rumorStack      stack.MessageStack
+	privateStack    stack.MessageStack
 	router          *router.Router
 	monguerPocesses map[string]*monguer.MongerHandler
 	rumorCounter    *utils.Counter // [name] address
@@ -46,14 +47,15 @@ func NewNode(addressStr, name string) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	logger.Logw("Listening to peers in address <%v>", addressStr)
 
 	return &Node{
 		Name:            name,
 		Address:         address,
 		peers:           utils.EmptyAdresses(),
-		rumorStack:      RumorStack{Messages: make(map[string][]monguer.RumorMessage)},
-		privateStack:    PrivateStack{Messages: make(map[string][]data.PrivateMessage)},
+		rumorStack:      stack.NewMessageStack(),
+		privateStack:    stack.NewMessageStack(),
 		router:          router.NewRouter(),
 		monguerPocesses: make(map[string]*monguer.MongerHandler),
 		rumorCounter:    utils.NewCounter(uint32(0)),
@@ -65,6 +67,7 @@ func NewNode(addressStr, name string) (*Node, error) {
 
 // Start node process
 func (node *Node) Start(clientChan <-chan client.Message) error {
+	logger.Logw("Starting Node %v", node.Name)
 	connection, err := connection.NewConnectionHandler(node.Address.String(), node.Name, true)
 	if err != nil {
 		return err
@@ -199,7 +202,7 @@ func (node *Node) mongerMessage(msg *monguer.RumorMessage, originPeer string, ro
 
 	go func() {
 		for msg := range messageQueue {
-			node.peerConection.SendPacketToPeer(msg.Destination, &data.GossipPacket{Rumor: msg.Message})
+			node.peerConection.SendPacketToPeer(msg.DestinationAddress, &data.GossipPacket{Rumor: msg.Message})
 		}
 	}()
 }

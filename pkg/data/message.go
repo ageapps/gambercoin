@@ -25,6 +25,16 @@ func NewSimpleMessage(ogname, msg, relay string) *SimpleMessage {
 	}
 }
 
+// GetID as GenericMessage
+func (msg PrivateMessage) GetID() uint32 {
+	return msg.ID
+}
+
+// GetOrigin as GenericMessage
+func (msg PrivateMessage) GetOrigin() string {
+	return msg.Origin
+}
+
 // NewPrivateMessage create
 func NewPrivateMessage(origin string, ID uint32, destination, text string, hops uint32) *PrivateMessage {
 	return &PrivateMessage{origin, ID, destination, text, hops}

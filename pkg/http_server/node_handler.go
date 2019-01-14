@@ -4,10 +4,10 @@ import (
 	"log"
 	"sync"
 
+	"github.com/ageapps/gambercoin/pkg/stack"
+
 	"github.com/ageapps/gambercoin/pkg/client"
-	"github.com/ageapps/gambercoin/pkg/data"
 	"github.com/ageapps/gambercoin/pkg/logger"
-	"github.com/ageapps/gambercoin/pkg/monguer"
 	"github.com/ageapps/gambercoin/pkg/node"
 	"github.com/ageapps/gambercoin/pkg/router"
 	"github.com/ageapps/gambercoin/pkg/utils"
@@ -113,14 +113,15 @@ func getGossiperRoutes(name string) *router.RoutingTable {
 	return targetGossiper.GetRoutes()
 }
 
-func getGossiperMessages(name string) *[]monguer.RumorMessage {
+func getGossiperMessages(name string) *[]stack.GenericMessage {
 	targetGossiper, found := gossiperPool.getGossiper(name)
 	if !found {
 		return nil
 	}
 	return targetGossiper.GetLatestMessages()
 }
-func getGossiperPrivateMessages(name string) *map[string][]data.PrivateMessage {
+
+func getGossiperPrivateMessages(name string) *map[string][]stack.GenericMessage {
 	targetGossiper, found := gossiperPool.getGossiper(name)
 	if !found {
 		return nil

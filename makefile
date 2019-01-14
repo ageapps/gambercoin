@@ -99,3 +99,9 @@ lint:
 
 kill:
 	kill $(lsof -nP -t -i4TCP:8080)
+
+deps:
+	dep ensure
+
+show-deps:
+	dep status -dot | dot -T png | open -f -a /Applications/Preview.app

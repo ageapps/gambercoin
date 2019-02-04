@@ -77,6 +77,7 @@ var (
 type StatusResponse struct {
 	Address string `json:"address"`
 	Name    string `json:"name"`
+	Hash    string `json:"hash"`
 }
 
 func startNode(name, address string, peers *utils.PeerAddresses) string {
@@ -158,6 +159,7 @@ func getStatusResponse(name string) *StatusResponse {
 	}
 	return &StatusResponse{
 		Name:    targetNode.Name,
+		Hash:    targetNode.MinerHash.String(),
 		Address: targetNode.Address.String(),
 	}
 }

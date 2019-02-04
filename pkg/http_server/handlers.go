@@ -51,16 +51,6 @@ func GetRoutes(w http.ResponseWriter, r *http.Request) {
 	send(&w, getNodeRoutes(name))
 }
 
-// GetFiles func
-// func GetFiles(w http.ResponseWriter, r *http.Request) {
-// 	name, ok := getNameFromRequest(r)
-// 	if !ok {
-// 		sendError(&w, errors.New("Error: no peer requested for files"))
-// 		return
-// 	}
-// 	send(&w, getNodeFilesStatus(name))
-// }
-
 // GetNodes func
 func GetNodes(w http.ResponseWriter, r *http.Request) {
 	name, ok := getNameFromRequest(r)
@@ -107,48 +97,6 @@ func PostPrivateMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	send(&w, getNodeMessages(name))
 }
-
-// PostSearch func
-// func PostSearch(w http.ResponseWriter, r *http.Request) {
-// 	params := *readBody(&w, r)
-// 	name, ok := params["name"].(string)
-// 	if !ok {
-// 		sendError(&w, errors.New("Error: no peer requested"))
-// 		return
-// 	}
-// 	search, ok := params["search"].(string)
-// 	if !ok || !sendSearchMessage(name, search) {
-// 		sendError(&w, errors.New("Error while searching"))
-// 		return
-// 	}
-// 	sendOk(&w)
-// }
-
-// PostRequest func
-// func PostRequest(w http.ResponseWriter, r *http.Request) {
-// 	params := *readBody(&w, r)
-// 	name, ok := params["name"].(string)
-// 	if !ok {
-// 		sendError(&w, errors.New("Error: no peer requested"))
-// 		return
-// 	}
-// 	dest, ok := params["destination"].(string)
-// 	if !ok {
-// 		sendError(&w, errors.New("Error: no destination requested"))
-// 		return
-// 	}
-// 	hash, ok := params["hash"].(string)
-// 	if !ok {
-// 		sendError(&w, errors.New("Error: no hash requested"))
-// 		return
-// 	}
-// 	file, ok := params["file"].(string)
-// 	if !ok || !sendFileRequest(name, dest, file, hash) {
-// 		sendError(&w, errors.New("Error while sending new request"))
-// 		return
-// 	}
-// 	send(&w, getNodeFilesStatus(name))
-// }
 
 // PostNode func
 func PostNode(w http.ResponseWriter, r *http.Request) {
@@ -276,9 +224,11 @@ func Start(w http.ResponseWriter, r *http.Request) {
 }
 
 func send(w *http.ResponseWriter, v interface{}) {
-	if reflect.ValueOf(v).IsNil() {
-		sendError(w, errors.New("Error sending response"))
-		return
+	if reflect.TypeOf(v) != reflect.TypeOf(int(0)) {
+		if reflect.ValueOf(v).IsNil() {
+			sendError(w, errors.New("Error sending response"))
+			return
+		}
 	}
 	(*w).Header().Set("Content-Type", "application/json; charset=UTF-8")
 	(*w).WriteHeader(http.StatusOK)

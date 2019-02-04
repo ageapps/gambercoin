@@ -1,0 +1,19 @@
+version: "2.1"
+services:
+  node:
+    build: .
+    image: ageapps/gambercoin-node
+    environment:
+      - PORT=8888
+    ports:
+      - 8888:8888
+  # headless:
+  #   build: 
+  #     context: .
+  #     dockerfile: Dockerfile.headless
+  #   image: ageapps/gambercoin-headless
+  #   environment:
+  #     - ADDRESS=127.0.0.1:5001
+  #     - PEERS=127.0.0.1:5000
+  #   ports:
+  #     - 5001:5001

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/google/uuid"
@@ -72,9 +73,17 @@ func main() {
 	clientConn := listenToUDPClient(clientAddress, clientChannel)
 	defer clientConn.Close()
 
+	address, ok := os.LookupEnv("ADDRESS")
+	if ok {
+		nodepAddr.Set(address)
+	}
 	var node, err = node.NewNode(nodepAddr.String(), *name)
 	if err != nil {
 		log.Fatal(err)
+	}
+	peersEnv, ok := os.LookupEnv("PEERS")
+	if ok {
+		peers.Set(peersEnv)
 	}
 
 	node.AddPeers(peers)
